@@ -830,6 +830,21 @@
             transition: all 0.2s;
         }
 
+        /* Hide by default on desktop, show on hover */
+        @media (hover: hover) {
+            .add-option-btn {
+                opacity: 0;
+            }
+
+            .story-suggestions:hover .add-option-btn {
+                opacity: 1;
+            }
+
+            .story-suggestions.no-options .add-option-btn {
+                opacity: 1;
+            }
+        }
+
         .add-option-btn:hover {
             border-color: var(--amber);
             color: var(--amber);
