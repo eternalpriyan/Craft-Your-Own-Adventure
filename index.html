@@ -461,6 +461,40 @@
         .story-segment.narration {
             color: var(--amber);
         }
+
+        .story-segment.narration p {
+            margin: 0 0 1em 0;
+        }
+
+        .story-segment.narration p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Markdown-style formatting */
+        .story-segment.narration strong {
+            color: var(--amber-bright);
+            font-weight: 600;
+        }
+
+        .story-segment.narration em {
+            font-style: italic;
+            color: var(--amber);
+        }
+
+        /* Dialogue styling */
+        .story-segment.narration .dialogue {
+            color: var(--amber-bright);
+            font-style: italic;
+        }
+
+        /* Blockquote for internal thoughts or emphasis */
+        .story-segment.narration blockquote {
+            border-left: 2px solid var(--amber-dim);
+            padding-left: 1em;
+            margin: 0.5em 0;
+            color: var(--amber-dim);
+            font-style: italic;
+        }
         
         .story-suggestions {
             margin-top: 20px;
@@ -955,61 +989,56 @@
 
                 // Fetch the full document content with all nested blocks
                 const docContent = await craftRequest(`blocks?id=${targetDoc.id}&maxDepth=-1`);
-                
+
+                // Debug: log raw API response
+                console.log('Raw Craft response:', JSON.stringify(docContent, null, 2));
+
                 // Build tree from blocks - page blocks become branches
                 state.adventureTree = buildTreeFromBlocks(docContent, targetDoc.title);
                 state.currentBranchId = targetDoc.id;
-                
-                renderTree();
-                attachTreeHandlers();
-                await loadBranchContent(targetDoc.id);
+
+                // Debug: log tree structure
+                console.log('Adventure tree:', JSON.stringify(state.adventureTree, null, 2));
+
+                // Load the root page (step 0)
+                await loadPage(targetDoc.id);
             } catch (error) {
                 console.error('Failed to load adventure tree:', error);
                 showError(`Failed to load from Craft: ${error.message}`);
             }
         }
 
-        function buildTreeFromBlocks(block, title = 'Adventure') {
+        function buildTreeFromBlocks(block, fallbackTitle = 'Adventure') {
+            // Craft API: page blocks have type='page' and markdown IS the title
+            // Text blocks have type='text' and markdown is the content
+            const isPage = block.type === 'page';
+
             const node = {
                 id: block.id,
-                title: extractTitle(block, title),
-                markdown: block.markdown || '',
-                children: [],
-                blocks: [] // Store non-page child blocks for content
+                // For pages, markdown is the title
+                title: isPage ? (block.markdown || fallbackTitle) : fallbackTitle,
+                content: '', // Content from child text blocks
+                children: []  // Child pages (options)
             };
+
+            // Collect content from child TEXT blocks only
+            let contentParts = [];
 
             if (block.content && Array.isArray(block.content)) {
                 for (const child of block.content) {
-                    if (child.type === 'page' || (child.markdown && child.markdown.includes('<page>'))) {
-                        // This is a branch (subpage)
-                        const childNode = buildTreeFromBlocks(child, extractPageTitle(child.markdown));
+                    if (child.type === 'page') {
+                        // Child page (option)
+                        const childNode = buildTreeFromBlocks(child, 'Option');
                         node.children.push(childNode);
-                    } else {
-                        // Regular content block
-                        node.blocks.push(child);
+                    } else if (child.type === 'text' && child.markdown && child.markdown.trim()) {
+                        // Text block - add to content
+                        contentParts.push(child.markdown.trim());
                     }
                 }
             }
 
+            node.content = contentParts.join('\n\n');
             return node;
-        }
-
-        function extractTitle(block, fallback) {
-            if (block.markdown) {
-                // Try to extract from <page> or <pageTitle> tags
-                const pageMatch = block.markdown.match(/<page>([^<]*)<\/page>/);
-                if (pageMatch) return pageMatch[1].trim() || fallback;
-                
-                const titleMatch = block.markdown.match(/<pageTitle>([^<]*)<\/pageTitle>/);
-                if (titleMatch) return titleMatch[1].trim() || fallback;
-            }
-            return fallback;
-        }
-
-        function extractPageTitle(markdown) {
-            if (!markdown) return 'Branch';
-            const match = markdown.match(/<page>([^<]*)<\/page>/);
-            return match ? match[1].trim() || 'Branch' : 'Branch';
         }
 
         function renderTree() {
@@ -1054,44 +1083,194 @@
         }
 
         async function navigateToBranch(id) {
-            state.currentBranchId = id;
-            state.conversationContext = [];
-            renderTree();
-            attachTreeHandlers();
-            await loadBranchContent(id);
-            $('current-branch-name').textContent = '';
+            // All navigation goes through loadPage (step 0)
+            await loadPage(id);
         }
 
-        async function loadBranchContent(id) {
-            const node = findNode(state.adventureTree, id);
-            if (!node) return;
+        // ===== STEP 0: LOAD PAGE (Central function - everything funnels here) =====
+        async function loadPage(pageId) {
+            state.currentBranchId = pageId;
+            state.isGenerating = true;
+            sendBtn.disabled = true;
 
-            // Combine markdown from all content blocks
-            const contentMarkdown = node.blocks
-                .map(b => b.markdown || '')
-                .join('\n')
-                .trim();
-
-            if (!contentMarkdown) {
-                storyContent.innerHTML = `
-                    <div class="welcome-message">
-                        <h2>Your Adventure Awaits</h2>
-                        <p>Begin your story by typing a scene, setting, or situation. 
-                        The AI will weave your narrative, and every choice you make 
-                        will branch into a new path — all saved in your Craft document.</p>
-                    </div>
-                `;
+            const node = findNode(state.adventureTree, pageId);
+            if (!node) {
+                console.error('Node not found:', pageId);
+                state.isGenerating = false;
+                sendBtn.disabled = false;
                 return;
             }
 
-            // Parse and display content
-            const segments = parseContent(contentMarkdown);
-            storyContent.innerHTML = segments.map(seg => renderSegment(seg)).join('');
-            
-            // Build context from content
-            state.conversationContext = segments.filter(s => s.type !== 'suggestions');
-            
+            // Check if page has content
+            const hasContent = node.content && node.content.trim().length > 0;
+
+            if (!hasContent) {
+                // EMPTY PAGE: Generate content
+                console.log('Page empty, generating content for:', node.title);
+
+                storyContent.innerHTML = '<div class="story-segment narration loading">Generating story...</div>';
+                scrollToBottom();
+
+                try {
+                    // Generate narrative (mock)
+                    const narrative = await generateNarrative(node.title);
+
+                    // Generate options (mock)
+                    const options = await generateOptions(narrative);
+
+                    // Write narrative to Craft page
+                    await writeToCraft(narrative);
+
+                    // Update local node
+                    node.content = narrative;
+
+                    // Create empty child pages for each option
+                    for (const optionTitle of options) {
+                        await createEmptyChildPage(pageId, optionTitle);
+                    }
+
+                    // Refresh tree from Craft to get new children
+                    await refreshNode(pageId);
+
+                } catch (error) {
+                    console.error('Generation error:', error);
+                    storyContent.innerHTML = `<div class="error-message">Error: ${error.message}</div>`;
+                    state.isGenerating = false;
+                    sendBtn.disabled = false;
+                    return;
+                }
+            }
+
+            // Display content and options
+            displayPage(node);
+
+            renderTree();
+            attachTreeHandlers();
+
+            state.isGenerating = false;
+            sendBtn.disabled = false;
+            userInput.focus();
+        }
+
+        // Display page content and child pages as options
+        function displayPage(node) {
+            let html = '';
+
+            // Show page title as header (skip for root document)
+            const isRoot = node.id === state.adventureTree?.id;
+            if (!isRoot) {
+                html += `<div class="story-segment user-input">${escapeHtml(node.title)}</div>`;
+            }
+
+            // Show content (narrative) - convert line breaks to HTML and parse markdown
+            if (node.content && node.content.trim()) {
+                const paragraphs = node.content.split('\n\n').filter(p => p.trim());
+                const contentHtml = paragraphs.map(p => `<p>${parseMarkdown(p.trim())}</p>`).join('');
+                html += `<div class="story-segment narration">${contentHtml}</div>`;
+            }
+
+            // Show child pages as options
+            if (node.children && node.children.length > 0) {
+                const optionsHtml = node.children.map(child => {
+                    const hasChildContent = child.content && child.content.trim().length > 0;
+                    const statusClass = hasChildContent ? 'explored' : 'unexplored';
+                    const statusIcon = hasChildContent ? '✓' : '→';
+                    return `<div class="suggestion-item ${statusClass}" onclick="selectOption('${child.id}')">${statusIcon} ${escapeHtml(child.title)}</div>`;
+                }).join('');
+
+                html += `
+                    <div class="story-suggestions">
+                        <h4>What will you do?</h4>
+                        ${optionsHtml}
+                    </div>
+                `;
+            }
+
+            // Show welcome message if root with no content and no children
+            if (isRoot && !node.content?.trim() && (!node.children || node.children.length === 0)) {
+                html = `
+                    <div class="welcome-message">
+                        <h2>Your Adventure Awaits</h2>
+                        <p>Begin your story by typing a scene, setting, or situation.</p>
+                    </div>
+                `;
+            }
+
+            storyContent.innerHTML = html;
             scrollToBottom();
+        }
+
+        // Refresh a node's data from Craft
+        async function refreshNode(pageId) {
+            try {
+                const response = await craftRequest(`blocks?id=${pageId}&maxDepth=1`);
+                const node = findNode(state.adventureTree, pageId);
+                if (node && response) {
+                    // Update children from response
+                    // For page blocks, markdown IS the title (not wrapped in <page> tags)
+                    node.children = (response.content || [])
+                        .filter(c => c.type === 'page')
+                        .map(c => ({
+                            id: c.id,
+                            title: c.markdown || 'Option',
+                            content: '',  // Content is in child text blocks, not fetched here
+                            children: []
+                        }));
+                }
+            } catch (error) {
+                console.error('Failed to refresh node:', error);
+            }
+        }
+
+        // ===== MOCK AI FUNCTIONS =====
+        async function generateNarrative(choice) {
+            await new Promise(r => setTimeout(r, 500)); // Simulate delay
+            return `You chose: "${choice}"
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.`;
+        }
+
+        async function generateOptions(narrative) {
+            await new Promise(r => setTimeout(r, 200)); // Simulate delay
+            // Mock: Always return 3 fixed options
+            return [
+                "Explore the ancient ruins",
+                "Follow the mysterious stranger",
+                "Return to the village"
+            ];
+        }
+
+        // Create an empty child page under parent
+        async function createEmptyChildPage(parentId, title) {
+            try {
+                const response = await craftRequest('blocks', 'POST', {
+                    markdown: `<page>${title}</page>`,
+                    position: {
+                        position: 'end',
+                        pageId: parentId
+                    }
+                });
+
+                const newBlockId = response.items?.[0]?.id;
+                if (newBlockId) {
+                    // Add to local tree
+                    const parentNode = findNode(state.adventureTree, parentId);
+                    if (parentNode) {
+                        parentNode.children.push({
+                            id: newBlockId,
+                            title: title,
+                            content: '',
+                            children: []
+                        });
+                    }
+                }
+                return newBlockId;
+            } catch (error) {
+                console.error('Failed to create child page:', error);
+                throw error;
+            }
         }
 
         function findNode(tree, id) {
@@ -1104,200 +1283,18 @@
             return null;
         }
 
-        function parseContent(content) {
-            // Clean up Craft markdown tags
-            let cleanContent = content
-                .replace(/<page>.*?<\/page>/g, '')
-                .replace(/<pageTitle>.*?<\/pageTitle>/g, '')
-                .replace(/<content>/g, '')
-                .replace(/<\/content>/g, '')
-                .trim();
-
-            // Simple parser - splits by user inputs marked with >
-            const segments = [];
-            const lines = cleanContent.split('\n');
-            let currentSegment = { type: 'narration', text: '' };
-
-            for (const line of lines) {
-                if (line.startsWith('> ')) {
-                    if (currentSegment.text?.trim()) {
-                        segments.push(currentSegment);
-                    }
-                    segments.push({ type: 'user-input', text: line.substring(2) });
-                    currentSegment = { type: 'narration', text: '' };
-                } else if (line.startsWith('**What will you do?**') || line.startsWith('---')) {
-                    // Skip suggestion headers
-                } else if (line.startsWith('• ') || line.startsWith('- ')) {
-                    const bulletContent = line.replace(/^[•\-]\s*/, '').trim();
-                    if (bulletContent) {
-                        if (!currentSegment.suggestions) {
-                            if (currentSegment.text?.trim()) {
-                                segments.push(currentSegment);
-                            }
-                            currentSegment = { type: 'suggestions', suggestions: [] };
-                        }
-                        currentSegment.suggestions.push(bulletContent);
-                    }
-                } else {
-                    if (currentSegment.type === 'suggestions') {
-                        segments.push(currentSegment);
-                        currentSegment = { type: 'narration', text: '' };
-                    }
-                    currentSegment.text += line + '\n';
-                }
-            }
-
-            if (currentSegment.text?.trim() || currentSegment.suggestions?.length) {
-                segments.push(currentSegment);
-            }
-
-            return segments;
-        }
-
-        function renderSegment(segment) {
-            if (segment.type === 'user-input') {
-                return `<div class="story-segment user-input">${escapeHtml(segment.text)}</div>`;
-            } else if (segment.type === 'suggestions') {
-                return `
-                    <div class="story-suggestions">
-                        <h4>What will you do?</h4>
-                        ${segment.suggestions.map(s => 
-                            `<div class="suggestion-item" onclick="useSuggestion('${escapeHtml(s)}')">${escapeHtml(s)}</div>`
-                        ).join('')}
-                    </div>
-                `;
-            } else {
-                return `<div class="story-segment narration">${escapeHtml(segment.text)}</div>`;
-            }
-        }
-
-        // Global function for suggestion clicks
-        // Clicking a suggestion auto-creates a branch (subpage) for that path
-        window.useSuggestion = async function(text) {
+        // ===== GLOBAL FUNCTIONS =====
+        // Global function for clicking an option (child page)
+        window.selectOption = function(pageId) {
             if (state.isGenerating) return;
-
-            state.isGenerating = true;
-            sendBtn.disabled = true;
-            userInput.value = '';
-
-            // Remove welcome message if present
-            const welcome = storyContent.querySelector('.welcome-message');
-            if (welcome) welcome.remove();
-
-            // Add user input to display
-            const userSegment = document.createElement('div');
-            userSegment.className = 'story-segment user-input';
-            userSegment.textContent = text;
-            storyContent.appendChild(userSegment);
-
-            // Add to context
-            state.conversationContext.push({ type: 'user-input', text: text });
-
-            // Create loading indicator
-            const loadingDiv = document.createElement('div');
-            loadingDiv.className = 'story-segment narration loading';
-            storyContent.appendChild(loadingDiv);
-            scrollToBottom();
-
-            let fullResponse = '';
-
-            try {
-                const response = await callOpenRouter(text);
-                loadingDiv.classList.remove('loading');
-
-                fullResponse = await processOpenRouterStream(response, (streamText) => {
-                    loadingDiv.innerHTML = formatNarration(streamText);
-                    scrollToBottom();
-                });
-
-                // Remove any [BRANCH: ...] marker from response since we're auto-branching
-                fullResponse = fullResponse.replace(/\[BRANCH:\s*[^\]]+\]\s*/g, '');
-                loadingDiv.innerHTML = formatNarration(fullResponse);
-
-                // Add to context
-                state.conversationContext.push({ type: 'narration', text: fullResponse });
-
-                // Auto-create branch for this path choice
-                // Use truncated suggestion text as branch title
-                const branchTitle = text.length > 40 ? text.substring(0, 40) + '...' : text;
-
-                try {
-                    console.log('Auto-creating branch for suggestion:', branchTitle);
-                    await createBranch(branchTitle);
-
-                    // Write content to the new branch
-                    const craftContent = `> ${text}\n\n${fullResponse}`;
-                    await writeToCraft(craftContent);
-                } catch (craftError) {
-                    console.error('Craft API error:', craftError);
-                    const errorDiv = document.createElement('div');
-                    errorDiv.className = 'error-message';
-                    errorDiv.textContent = `Failed to save to Craft: ${craftError.message}. Your story continues but may not be saved.`;
-                    storyContent.appendChild(errorDiv);
-                }
-
-            } catch (error) {
-                console.error('Generation error:', error);
-                loadingDiv.innerHTML = `<div class="error-message">Error: ${error.message}. Please try again.</div>`;
-            }
-
-            state.isGenerating = false;
-            sendBtn.disabled = false;
-            userInput.focus();
+            loadPage(pageId);
         };
 
-        async function createBranch(title) {
-            try {
-                // Create a new page block as a child of the current branch
-                // Use markdown format with <page> tag to create a subpage
-                console.log('Creating branch under parent:', state.currentBranchId);
-
-                const response = await craftRequest('blocks', 'POST', {
-                    markdown: `<page>${title}</page>`,
-                    position: {
-                        position: 'end',
-                        pageId: state.currentBranchId
-                    }
-                });
-
-                console.log('Create branch response:', response);
-
-                // The response should contain the created page block
-                const newBlockId = response.items?.[0]?.id;
-                if (!newBlockId) {
-                    console.error('Unexpected response format:', response);
-                    throw new Error('No block ID returned from Craft');
-                }
-
-                // Update local tree with the new branch
-                const parentNode = findNode(state.adventureTree, state.currentBranchId);
-                if (parentNode) {
-                    const newNode = {
-                        id: newBlockId,
-                        title: title,
-                        markdown: `<page>${title}</page>`,
-                        children: [],
-                        blocks: []
-                    };
-                    parentNode.children.push(newNode);
-                    console.log('Added new branch node:', newNode.id, 'to parent:', parentNode.id);
-                }
-
-                // Update current branch to the new page so subsequent content goes here
-                state.currentBranchId = newBlockId;
-                console.log('Updated currentBranchId to:', state.currentBranchId);
-
-                renderTree();
-                attachTreeHandlers();
-
-                showBranchNotification(title);
-
-                return newBlockId;
-            } catch (error) {
-                console.error('Failed to create branch:', error);
-                throw error;
-            }
-        }
+        // Global function for custom input (legacy - now uses handleSend)
+        window.useSuggestion = function(text) {
+            userInput.value = text;
+            handleSend();
+        };
 
         async function writeToCraft(content) {
             try {
@@ -1314,14 +1311,10 @@
 
                 console.log('Write to Craft response:', response);
 
-                // Update local tree
+                // Update local tree - use content property now
                 const node = findNode(state.adventureTree, state.currentBranchId);
                 if (node) {
-                    node.blocks.push({
-                        type: 'text',
-                        markdown: content,
-                        id: response.items?.[0]?.id
-                    });
+                    node.content = content;
                 }
             } catch (error) {
                 console.error('Failed to write to Craft:', error);
@@ -1397,6 +1390,9 @@ FORMAT:
             );
 
             if (!response.ok) {
+                if (response.status === 429) {
+                    throw new Error("Uh oh! We've hit the rate limit for this free API. Please choose another LLM in Settings.");
+                }
                 const errorText = await response.text();
                 throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
             }
@@ -1443,165 +1439,26 @@ FORMAT:
         }
 
         // ===== MESSAGE HANDLING =====
+        // User types custom message → create empty child page → loadPage (triggers generation)
         async function handleSend() {
             const input = userInput.value.trim();
             if (!input || state.isGenerating) return;
 
-            state.isGenerating = true;
-            sendBtn.disabled = true;
             userInput.value = '';
             userInput.style.height = 'auto';
 
-            // Remove welcome message if present
-            const welcome = storyContent.querySelector('.welcome-message');
-            if (welcome) welcome.remove();
-
-            // Add user input to display
-            const userSegment = document.createElement('div');
-            userSegment.className = 'story-segment user-input';
-            userSegment.textContent = input;
-            storyContent.appendChild(userSegment);
-
-            // Add to context
-            state.conversationContext.push({ type: 'user-input', text: input });
-
-            // Create loading indicator
-            const loadingDiv = document.createElement('div');
-            loadingDiv.className = 'story-segment narration loading';
-            storyContent.appendChild(loadingDiv);
-            scrollToBottom();
-
-            let fullResponse = '';
-
             try {
-                const response = await callOpenRouter(input);
-                loadingDiv.classList.remove('loading');
+                // Create empty child page with user's input as title
+                const newPageId = await createEmptyChildPage(state.currentBranchId, input);
 
-                fullResponse = await processOpenRouterStream(response, (text) => {
-                    loadingDiv.innerHTML = formatNarration(text);
-                    scrollToBottom();
-                });
-
-                // Remove any [BRANCH: ...] marker from response
-                fullResponse = fullResponse.replace(/\[BRANCH:\s*[^\]]+\]\s*/g, '');
-
-                // Final render with hard-coded suggestion format
-                loadingDiv.innerHTML = formatNarration(fullResponse);
-
-                // Add to context
-                state.conversationContext.push({ type: 'narration', text: fullResponse });
-
-                // Always create a subpage for each response
-                const branchTitle = input.length > 40 ? input.substring(0, 40) + '...' : input;
-                const craftContent = `> ${input}\n\n${fullResponse}`;
-
-                try {
-                    console.log('Creating subpage branch:', branchTitle);
-                    await createBranch(branchTitle);
-                    await writeToCraft(craftContent);
-                } catch (craftError) {
-                    console.error('Craft API error:', craftError);
-                    const errorDiv = document.createElement('div');
-                    errorDiv.className = 'error-message';
-                    errorDiv.textContent = `Failed to save to Craft: ${craftError.message}. Your story continues but may not be saved.`;
-                    storyContent.appendChild(errorDiv);
+                if (newPageId) {
+                    // Load the new page (will generate content since empty)
+                    await loadPage(newPageId);
                 }
-
             } catch (error) {
-                console.error('Generation error:', error);
-                loadingDiv.innerHTML = `<div class="error-message">Error: ${error.message}. Please try again.</div>`;
+                console.error('Failed to create page:', error);
+                storyContent.innerHTML += `<div class="error-message">Error: ${error.message}</div>`;
             }
-
-            state.isGenerating = false;
-            sendBtn.disabled = false;
-            userInput.focus();
-        }
-
-        function formatNarration(text) {
-            // Extract suggestions from AI response (various formats)
-            const { narrative, suggestions } = extractSuggestions(text);
-
-            let html = escapeHtml(narrative);
-
-            // Always render suggestions in consistent hard-coded format
-            if (suggestions.length > 0) {
-                const suggestionHtml = suggestions.map(s => {
-                    const escaped = s.replace(/`/g, '\\`').replace(/'/g, "\\'");
-                    return `<div class="suggestion-item" onclick="useSuggestion(\`${escaped}\`)">${escapeHtml(s)}</div>`;
-                }).join('');
-
-                return `
-                    ${html}
-                    <div class="story-suggestions">
-                        <h4>What will you do?</h4>
-                        ${suggestionHtml}
-                    </div>
-                `;
-            }
-
-            return html;
-        }
-
-        // Extract suggestions from AI response - handles various formats
-        function extractSuggestions(text) {
-            let narrative = text;
-            let suggestions = [];
-
-            // Remove [BRANCH: ...] markers
-            narrative = narrative.replace(/\[BRANCH:\s*[^\]]+\]\s*/g, '');
-
-            // Pattern 1: "---" separator followed by suggestions
-            if (narrative.includes('---')) {
-                const parts = narrative.split('---');
-                narrative = parts[0].trim();
-                const suggestionPart = parts.slice(1).join('---');
-
-                // Extract bullet points (•, -, *, or numbered)
-                const bulletMatches = suggestionPart.match(/(?:^|\n)\s*(?:[•\-\*]|\d+[\.\)])\s*(.+)/g);
-                if (bulletMatches) {
-                    suggestions = bulletMatches
-                        .map(s => s.replace(/(?:^|\n)\s*(?:[•\-\*]|\d+[\.\)])\s*/, '').trim())
-                        .filter(s => s.length > 0 && !s.toLowerCase().includes('what will you do'));
-                }
-            }
-
-            // Pattern 2: Look for bullet points at end without separator
-            if (suggestions.length === 0) {
-                const lines = narrative.split('\n');
-                const bulletLines = [];
-                let foundBullets = false;
-
-                for (let i = lines.length - 1; i >= 0; i--) {
-                    const line = lines[i].trim();
-                    if (/^(?:[•\-\*]|\d+[\.\)])\s*.+/.test(line)) {
-                        bulletLines.unshift(line.replace(/^(?:[•\-\*]|\d+[\.\)])\s*/, '').trim());
-                        foundBullets = true;
-                    } else if (foundBullets && line.length > 0) {
-                        // Stop when we hit non-bullet content
-                        break;
-                    }
-                }
-
-                if (bulletLines.length >= 2) {
-                    suggestions = bulletLines.filter(s =>
-                        s.length > 0 && !s.toLowerCase().includes('what will you do')
-                    );
-                    // Remove suggestion lines from narrative
-                    const narrativeLines = lines.slice(0, lines.length - bulletLines.length - 1);
-                    narrative = narrativeLines.join('\n').trim();
-                }
-            }
-
-            // Clean up narrative - remove "What will you do?" headers
-            narrative = narrative
-                .replace(/\*\*What will you do\?\*\*/gi, '')
-                .replace(/What will you do\?/gi, '')
-                .trim();
-
-            // Limit to 3 suggestions
-            suggestions = suggestions.slice(0, 3);
-
-            return { narrative, suggestions };
         }
 
         // ===== UTILITIES =====
@@ -1609,6 +1466,27 @@ FORMAT:
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // Simple markdown parser for narrative text
+        function parseMarkdown(text) {
+            let html = escapeHtml(text);
+
+            // Bold: **text** or __text__
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+            // Italic: *text* or _text_
+            html = html.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+            html = html.replace(/_([^_]+?)_/g, '<em>$1</em>');
+
+            // Dialogue: "text" - wrap in span with dialogue class
+            html = html.replace(/"([^"]+)"/g, '<span class="dialogue">"$1"</span>');
+
+            // Blockquote lines starting with >
+            html = html.replace(/^&gt;\s*(.+)$/gm, '<blockquote>$1</blockquote>');
+
+            return html;
         }
 
         function truncate(str, len) {

@@ -29,43 +29,121 @@ Body: {model: "google/gemma-2-9b-it:free", messages: [{role, content}], stream: 
 ```
 Streaming: SSE format, parse `data: {choices: [{delta: {content}}]}`
 
+## Craft Document Structure
+
+**Everything is a `<page>`**. Options are child pages, not text.
+
+```
+Document (root)
+└── <page> Story Title (user's first message)
+    content: "Narrative only - no options as text"
+    │
+    ├── <page> Option 1: Go north     ← empty = unexplored
+    │       content: ""
+    │
+    ├── <page> Option 2: Go south     ← has content = explored
+    │       content: "You went south and found a river..."
+    │       ├── <page> Option A       ← empty
+    │       └── <page> Option B       ← empty
+    │
+    └── <page> Option 3: Stay here    ← empty = unexplored
+            content: ""
+```
+
+**Key rules:**
+- **Page title** = user's choice or typed message
+- **Page content** = AI-generated narrative (no options in text)
+- **Child pages** = available options (created empty when parent is generated)
+- **Empty page** = unexplored option
+- **Page with content** = explored option
+
 ## App Flow
-1. Splash → Settings (OpenRouter key, Craft URL, optional doc ID)
-2. Load: `GET /documents` → `GET /blocks?id={docId}` → build tree
-3. Play: User input → OpenRouter streams → display + `POST /blocks` to Craft
-4. Branch: AI outputs `[BRANCH: title]` → `POST /blocks` with `<page>title</page>` → continue in new branch
-5. Navigate: Tree panel shows all branches, click to load any
+
+### Step 0: LOAD PAGE (central function - everything funnels here)
+```
+loadPage(pageId):
+  → Fetch page from Craft
+  → Check if page has content
+
+  IF EMPTY:
+    → Generate narrative (API call 1)
+    → Write narrative to page content
+    → Generate options (API call 2 - returns JSON array)
+    → Create empty child pages for each option
+
+  THEN (always):
+    → Display content
+    → Display child pages as clickable options
+    → Show text input for custom option
+```
+
+### Step 1: USER CLICKS OPTION
+```
+→ Navigate to that child page
+→ Go to step 0 (loadPage)
+```
+
+### Step 2: USER TYPES CUSTOM MESSAGE
+```
+→ Create new empty child page with that title
+→ Navigate to it
+→ Go to step 0 (loadPage triggers generation since empty)
+```
+
+### Step 3: TREE NAVIGATION (sidebar)
+```
+→ Navigate to clicked page
+→ Go to step 0 (loadPage)
+```
+
+## AI API Calls (Two Separate Calls)
+
+**Call 1 - Narrative:**
+```
+Prompt: "You are a narrator. Continue this adventure based on the user's choice: '{choice}'.
+Write 2-3 paragraphs of narrative. Do NOT include options or choices."
+→ Returns: freeform narrative text
+```
+
+**Call 2 - Options:**
+```
+Prompt: "Based on this story so far, suggest exactly 3 possible actions.
+Return ONLY a JSON array with 3 short action phrases.
+Example: ["Search the room", "Open the door", "Call for help"]"
+→ Returns: JSON array of 3 strings
+```
+
+**Why separate calls:**
+- Narrative can be freeform/creative
+- Options must be deterministic/parseable
+- No reliance on AI formatting options correctly in narrative
 
 ## Tree Structure (in-memory)
 ```js
-{id, title, markdown, blocks: [...contentBlocks], children: [...branchNodes]}
+{id, title, content, children: [...childPages]}
 ```
-- `blocks`: non-page content for display
-- `children`: nested page blocks (branches)
-
-## Content Format in Craft
-```markdown
-> player input here
-
-Narrative paragraph from AI...
-
----
-**What will you do?**
-• Suggestion 1
-• Suggestion 2
-```
+- `content`: narrative text (empty if unexplored)
+- `children`: child pages (the options)
 
 ## Files
 - `index.html` — single-file app (HTML + CSS + JS)
 - Credentials stored in localStorage: `cyoa_openrouter_key`, `cyoa_craft_token`, `cyoa_craft_doc_id`
 
 ## Current Status
+
+**NEEDS REFACTOR** - Code does not yet match the flow above.
+
+### What exists:
 - UI complete (splash, settings, chat, tree panel)
-- OpenRouter streaming working
 - Craft API integration working
-- Story branching creates subpages in Craft Docs
-- Every response creates a subpage under the current page (builds nested tree)
-- Suggestion format is hard-coded for consistency (extracts from various AI formats)
+- Basic tree navigation
+
+### What needs to change:
+- Refactor to single `loadPage()` function (step 0) that handles everything
+- Separate AI calls for narrative vs options
+- Create empty child pages for options (not text in content)
+- Remove duplicate code paths (useSuggestion should just navigate)
+- Check if page empty → generate; has content → display
 
 ## Known Issues Fixed
 - **ASCII art spacing**: Fixed inconsistent ASCII characters in splash screen
