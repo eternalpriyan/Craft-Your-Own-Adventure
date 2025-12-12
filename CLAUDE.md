@@ -131,25 +131,35 @@ Example: ["Search the room", "Open the door", "Call for help"]"
 
 ## Current Status
 
-**NEEDS REFACTOR** - Code does not yet match the flow above.
+**WORKING** - Core architecture complete.
 
-### What exists:
-- UI complete (splash, settings, chat, tree panel)
-- Craft API integration working
-- Basic tree navigation
+### Implemented:
+- Central `loadPage()` function (Step 0) - all navigation funnels here
+- Options stored as empty child pages in Craft (not text)
+- Consolidated code paths (useSuggestion just navigates, handleSend creates page then navigates)
+- Tree panel shows all branches, click to navigate
+- Markdown parsing (bold, italic, dialogue quotes, blockquotes)
+- Paragraph breaks with proper styling
 
-### What needs to change:
-- Refactor to single `loadPage()` function (step 0) that handles everything
-- Separate AI calls for narrative vs options
-- Create empty child pages for options (not text in content)
-- Remove duplicate code paths (useSuggestion should just navigate)
-- Check if page empty → generate; has content → display
+### AI Currently Mocked:
+- `generateNarrative()` returns placeholder lorem ipsum
+- `generateOptions()` returns fixed 3 options
+- Ready to swap in real OpenRouter calls
+
+### Key Functions:
+- `loadPage(pageId)` - Central entry point, generates content if empty
+- `displayPage(node)` - Renders content + child pages as options
+- `createEmptyChildPage(parentId, title)` - Creates option page in Craft
+- `refreshNode(pageId)` - Syncs local tree with Craft
+- `buildTreeFromBlocks(block)` - Parses Craft response into tree
 
 ## Known Issues Fixed
 - **ASCII art spacing**: Fixed inconsistent ASCII characters in splash screen
 - **ADVENTURE spelling**: Corrected and centered ASCII art text
 - **Story branching**: Fixed to properly create subpages in Craft Docs
-- **Craft doc loading**: Fixed "Cannot read properties of undefined (reading 'trim')" error when loading docs with mixed content segments (user inputs + suggestions). Added optional chaining to `parseContent()` at lines 1059 and 1070
+- **Craft doc loading**: Fixed undefined error with optional chaining
+- **Duplicate branches**: Now navigates to existing pages instead of creating duplicates
+- **Title display**: Fixed - Craft stores title in `markdown` field directly (not wrapped in `<page>` tags)
 
 ## Style
 - Warm amber terminal: `#ffb000` on `#0a0a0f`
