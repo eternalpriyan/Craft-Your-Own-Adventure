@@ -383,6 +383,12 @@
             font-size: 20px;
             letter-spacing: 2px;
         }
+
+        @media (max-width: 700px) {
+            .header-title {
+                display: none;
+            }
+        }
         
         .header-right {
             display: flex;
@@ -1099,7 +1105,7 @@
     <!-- Settings Modal -->
     <div id="settings-modal">
         <div class="modal-content">
-            <h2>⚙ Configuration</h2>
+            <h2>⚙︎ Configuration</h2>
             <div class="form-group">
                 <label>Gemini API Key <span style="font-weight: normal; color: var(--text-dim);">(leave blank for placeholder text)</span></label>
                 <input type="password" id="gemini-key" placeholder="Enter your Gemini API key">
@@ -1159,7 +1165,7 @@
                 </div>
                 <button class="header-btn" id="back-btn" disabled title="Go back">← Back</button>
                 <button class="header-btn" id="refresh-btn" title="Reload from Craft">↻ Refresh</button>
-                <button class="settings-btn" id="open-settings" title="Settings">⚙</button>
+                <button class="settings-btn" id="open-settings" title="Settings">⚙︎</button>
             </div>
         </header>
 
