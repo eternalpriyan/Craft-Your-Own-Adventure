@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Choose Your Own Adventure</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+        
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-panel: #12121a;
+            --amber: #ffb000;
+            --amber-dim: #cc8c00;
+            --amber-glow: #ffb00033;
+            --amber-bright: #ffc940;
+            --text-dim: #665c40;
+            --border: #2a2a35;
+            --scanline: rgba(255, 176, 0, 0.03);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'IBM Plex Mono', monospace;
+            background: var(--bg-dark);
+            color: var(--amber);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* CRT Scanline Effect */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                var(--scanline) 2px,
+                var(--scanline) 4px
+            );
+            pointer-events: none;
+            z-index: 9999;
+        }
+        
+        /* Screen flicker effect */
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            92% { opacity: 1; }
+            93% { opacity: 0.8; }
+            94% { opacity: 1; }
+        }
+        
+        body {
+            animation: flicker 8s infinite;
+        }
+        
+        /* ===== SPLASH SCREEN ===== */
+        #splash {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-dark);
+            z-index: 100;
+            padding: 20px;
+        }
+        
+        .ascii-art {
+            font-family: 'VT323', monospace;
+            font-size: 14px;
+            line-height: 1.2;
+            white-space: pre;
+            color: var(--amber);
+            text-shadow: 0 0 10px var(--amber-glow), 0 0 20px var(--amber-glow);
+            margin-bottom: 40px;
+        }
+        
+        @media (max-width: 700px) {
+            .ascii-art {
+                font-size: 8px;
+            }
+        }
+        
+        .splash-prompt {
+            font-family: 'IBM Plex Mono', monospace;
+            color: var(--amber-dim);
+            font-size: 16px;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        
+        .splash-btn {
+            margin-top: 30px;
+            padding: 12px 40px;
+            font-family: 'VT323', monospace;
+            font-size: 24px;
+            background: transparent;
+            border: 2px solid var(--amber);
+            color: var(--amber);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .splash-btn:hover {
+            background: var(--amber);
+            color: var(--bg-dark);
+            box-shadow: 0 0 20px var(--amber-glow), 0 0 40px var(--amber-glow);
+        }
+        
+        /* ===== SETTINGS MODAL ===== */
+        #settings-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 200;
+        }
+        
+        #settings-modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: var(--bg-panel);
+            border: 1px solid var(--amber-dim);
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 0 40px var(--amber-glow);
+        }
+        
+        .modal-content h2 {
+            font-family: 'VT323', monospace;
+            font-size: 28px;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--amber-dim);
+            margin-bottom: 8px;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 14px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--amber);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        .form-group input:focus {
+            border-color: var(--amber);
+        }
+        
+        .form-group input::placeholder {
+            color: var(--text-dim);
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            font-family: 'VT323', monospace;
+            font-size: 18px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: var(--amber);
+            border: none;
+            color: var(--bg-dark);
+        }
+        
+        .btn-primary:hover {
+            background: var(--amber-bright);
+            box-shadow: 0 0 20px var(--amber-glow);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--amber-dim);
+            color: var(--amber-dim);
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--amber);
+            color: var(--amber);
+        }
+        
+        /* ===== MAIN APP ===== */
+        #app {
+            display: none;
+            height: 100vh;
+        }
+        
+        #app.active {
+            display: flex;
+        }
+        
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50px;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 50;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .tree-toggle {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--amber-dim);
+            padding: 6px 12px;
+            font-family: 'VT323', monospace;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .tree-toggle:hover,
+        .tree-toggle.active {
+            border-color: var(--amber);
+            color: var(--amber);
+        }
+        
+        .header-title {
+            font-family: 'VT323', monospace;
+            font-size: 20px;
+            letter-spacing: 2px;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .settings-btn {
+            background: none;
+            border: none;
+            color: var(--amber-dim);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px;
+            transition: color 0.2s;
+        }
+        
+        .settings-btn:hover {
+            color: var(--amber);
+        }
+        
+        /* Tree Panel */
+        .tree-panel {
+            position: fixed;
+            top: 50px;
+            left: 0;
+            bottom: 0;
+            width: 280px;
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            z-index: 40;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .tree-panel.open {
+            transform: translateX(0);
+        }
+        
+        .tree-header {
+            font-family: 'VT323', monospace;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--amber-dim);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .tree-node {
+            padding: 8px 0;
+            padding-left: 15px;
+            border-left: 1px solid var(--border);
+            margin-left: 8px;
+        }
+        
+        .tree-node:first-child {
+            border-left: none;
+            margin-left: 0;
+            padding-left: 0;
+        }
+        
+        .tree-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.2s;
+            font-size: 13px;
+            color: var(--amber-dim);
+        }
+        
+        .tree-item:hover {
+            background: rgba(255, 176, 0, 0.1);
+            color: var(--amber);
+        }
+        
+        .tree-item.current {
+            background: rgba(255, 176, 0, 0.15);
+            color: var(--amber);
+            border-left: 2px solid var(--amber);
+            margin-left: -2px;
+        }
+        
+        .tree-item-icon {
+            font-size: 10px;
+        }
+        
+        .tree-empty {
+            color: var(--text-dim);
+            font-size: 13px;
+            font-style: italic;
+            padding: 20px 0;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-top: 50px;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 50px);
+        }
+        
+        /* Story Display */
+        .story-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+            padding-bottom: 10px;
+        }
+        
+        .story-content {
+            max-width: 700px;
+            margin: 0 auto;
+            line-height: 1.8;
+        }
+        
+        .story-segment {
+            margin-bottom: 25px;
+            padding-bottom: 25px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .story-segment:last-child {
+            border-bottom: none;
+        }
+        
+        .story-segment.user-input {
+            color: var(--amber-bright);
+            font-style: italic;
+        }
+        
+        .story-segment.user-input::before {
+            content: '> ';
+            color: var(--amber-dim);
+        }
+        
+        .story-segment.narration {
+            color: var(--amber);
+        }
+        
+        .story-suggestions {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 176, 0, 0.05);
+            border-left: 2px solid var(--amber-dim);
+        }
+        
+        .story-suggestions h4 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--amber-dim);
+            margin-bottom: 10px;
+        }
+        
+        .suggestion-item {
+            padding: 8px 0;
+            color: var(--amber-dim);
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        
+        .suggestion-item:hover {
+            color: var(--amber-bright);
+        }
+        
+        .suggestion-item::before {
+            content: '• ';
+        }
+        
+        .welcome-message {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--amber-dim);
+        }
+        
+        .welcome-message h2 {
+            font-family: 'VT323', monospace;
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: var(--amber);
+        }
+        
+        .welcome-message p {
+            max-width: 500px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        
+        /* Input Area */
+        .input-container {
+            padding: 20px 30px;
+            background: var(--bg-panel);
+            border-top: 1px solid var(--border);
+        }
+        
+        .input-wrapper {
+            max-width: 700px;
+            margin: 0 auto;
+            display: flex;
+            gap: 15px;
+        }
+        
+        .input-field {
+            flex: 1;
+            padding: 15px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 14px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--amber);
+            outline: none;
+            resize: none;
+            min-height: 50px;
+            max-height: 150px;
+            transition: border-color 0.2s;
+        }
+        
+        .input-field:focus {
+            border-color: var(--amber);
+        }
+        
+        .input-field::placeholder {
+            color: var(--text-dim);
+        }
+        
+        .send-btn {
+            padding: 15px 25px;
+            font-family: 'VT323', monospace;
+            font-size: 18px;
+            background: var(--amber);
+            border: none;
+            color: var(--bg-dark);
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+            align-self: flex-end;
+        }
+        
+        .send-btn:hover:not(:disabled) {
+            background: var(--amber-bright);
+            box-shadow: 0 0 20px var(--amber-glow);
+        }
+        
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Loading indicator */
+        .loading {
+            display: inline-block;
+            color: var(--amber-dim);
+        }
+        
+        .loading::after {
+            content: '▋';
+            animation: cursor-blink 0.8s infinite;
+        }
+        
+        @keyframes cursor-blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--amber-dim);
+        }
+        
+        /* Branch notification */
+        .branch-notification {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--amber);
+            color: var(--bg-dark);
+            padding: 12px 25px;
+            font-family: 'VT323', monospace;
+            font-size: 16px;
+            border-radius: 3px;
+            box-shadow: 0 0 30px var(--amber-glow);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 60;
+        }
+        
+        .branch-notification.show {
+            opacity: 1;
+        }
+        
+        /* Error display */
+        .error-message {
+            background: rgba(255, 80, 80, 0.1);
+            border: 1px solid #ff5050;
+            color: #ff8080;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div id="splash">
+        <pre class="ascii-art">
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║     ██████╗██╗  ██╗ ██████╗  ██████╗ ███████╗███████╗        ║
+║    ██╔════╝██║  ██║██╔═══██╗██╔═══██╗██╔════╝██╔════╝        ║
+║    ██║     ███████║██║   ██║██║   ██║███████╗█████╗          ║
+║    ██║     ██╔══██║██║   ██║██║   ██║╚════██║██╔══╝          ║
+║    ╚██████╗██║  ██║╚██████╔╝╚██████╔╝███████║███████╗        ║
+║     ╚═════╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚══════╝╚══════╝        ║
+║                                                              ║
+║              ╔═╗ ╦ ╦╦═╗  ╔═╗╦ ╦╔╗╔                           ║
+║              ╚═╗ ║ ║╠╦╝  ║ ║║║║║║║                           ║
+║              ╚═╝ ╚═╝╩╚═  ╚═╝╚╩╝╝╚╝                           ║
+║                                                              ║
+║           ╔═╗╔╦╗╦  ╦╔═╗╔╗╔╔╦╗╦ ╦╦═╗╔═╗                       ║
+║           ╠═╣ ║║╚╗╔╝║╣ ║║║ ║ ║ ║╠╦╝║╣                        ║
+║           ╩ ╩═╩╝ ╚╝ ╚═╝╝╚╝ ╩ ╚═╝╩╚═╚═╝                       ║
+║                                                              ║
+║                        ┌─────────┐                           ║
+║                 ░░░░░░░│ ▓▓▓▓▓▓▓ │░░░░░░░                    ║
+║                 ░░░░░░░│ ▓     ▓ │░░░░░░░                    ║
+║                 ░░░░░░░│ ▓     ▓ │░░░░░░░                    ║
+║                        └────┬────┘                           ║
+║                             │                                ║
+║                      WEST OF HOUSE                           ║
+║                                                              ║
+║   You are standing in an open field west of a white house,   ║
+║   with a boarded front door.                                 ║
+║                                                              ║
+║   >_                                                         ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+        </pre>
+        <div class="splash-prompt">Press any key or click to begin...</div>
+        <button class="splash-btn" id="start-btn">Enter</button>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal">
+        <div class="modal-content">
+            <h2>⚙ Configuration</h2>
+            <div class="form-group">
+                <label>Gemini API Key</label>
+                <input type="password" id="gemini-key" placeholder="Enter your Gemini API key">
+            </div>
+            <div class="form-group">
+                <label>Craft API URL</label>
+                <input type="text" id="craft-token" placeholder="https://connect.craft.do/links/YOUR_LINK/api/v1">
+            </div>
+            <div class="form-group">
+                <label>Document ID (optional - uses first doc if empty)</label>
+                <input type="text" id="craft-doc-id" placeholder="Leave empty to auto-select">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" id="cancel-settings">Cancel</button>
+                <button class="btn btn-primary" id="save-settings">Save & Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app">
+        <header class="header">
+            <div class="header-left">
+                <button class="tree-toggle" id="tree-toggle">☰ Tree</button>
+                <span class="header-title">CHOOSE YOUR OWN ADVENTURE</span>
+            </div>
+            <div class="header-right">
+                <span id="current-branch-name"></span>
+                <button class="settings-btn" id="open-settings" title="Settings">⚙</button>
+            </div>
+        </header>
+
+        <aside class="tree-panel" id="tree-panel">
+            <div class="tree-header">📖 Adventure Map</div>
+            <div id="tree-content">
+                <div class="tree-empty">No adventures yet. Start your story below.</div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="story-container" id="story-container">
+                <div class="story-content" id="story-content">
+                    <div class="welcome-message">
+                        <h2>Your Adventure Awaits</h2>
+                        <p>Begin your story by typing a scene, setting, or situation. 
+                        The AI will weave your narrative, and every choice you make 
+                        will branch into a new path — all saved in your Craft document.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <textarea 
+                        class="input-field" 
+                        id="user-input" 
+                        placeholder="What do you do? (or describe how your adventure begins...)"
+                        rows="1"
+                    ></textarea>
+                    <button class="send-btn" id="send-btn">Send</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Branch Notification -->
+    <div class="branch-notification" id="branch-notification">
+        New branch created!
+    </div>
+
+    <script>
+        // ===== STATE =====
+        const state = {
+            geminiKey: localStorage.getItem('cyoa_gemini_key') || '',
+            craftToken: localStorage.getItem('cyoa_craft_token') || '',
+            craftDocId: localStorage.getItem('cyoa_craft_doc_id') || '',
+            currentBranchId: null,
+            adventureTree: null,
+            conversationContext: [],
+            isGenerating: false
+        };
+
+        // ===== DOM ELEMENTS =====
+        const $ = id => document.getElementById(id);
+        const splash = $('splash');
+        const settingsModal = $('settings-modal');
+        const app = $('app');
+        const treePanel = $('tree-panel');
+        const treeContent = $('tree-content');
+        const storyContent = $('story-content');
+        const storyContainer = $('story-container');
+        const userInput = $('user-input');
+        const sendBtn = $('send-btn');
+        const branchNotification = $('branch-notification');
+
+        // ===== INITIALIZATION =====
+        function init() {
+            // Splash screen handlers
+            $('start-btn').addEventListener('click', handleStart);
+            document.addEventListener('keydown', handleStart, { once: true });
+            splash.addEventListener('click', e => {
+                if (e.target === splash) handleStart();
+            });
+
+            // Settings handlers
+            $('save-settings').addEventListener('click', saveSettings);
+            $('cancel-settings').addEventListener('click', () => {
+                settingsModal.classList.remove('active');
+                if (state.geminiKey && state.craftToken && state.craftDocId) {
+                    showApp();
+                }
+            });
+            $('open-settings').addEventListener('click', () => {
+                populateSettingsForm();
+                settingsModal.classList.add('active');
+            });
+
+            // Tree panel toggle
+            $('tree-toggle').addEventListener('click', () => {
+                treePanel.classList.toggle('open');
+                $('tree-toggle').classList.toggle('active');
+            });
+
+            // Input handlers
+            sendBtn.addEventListener('click', handleSend);
+            userInput.addEventListener('keydown', e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                }
+            });
+
+            // Auto-resize textarea
+            userInput.addEventListener('input', () => {
+                userInput.style.height = 'auto';
+                userInput.style.height = Math.min(userInput.scrollHeight, 150) + 'px';
+            });
+        }
+
+        function handleStart() {
+            splash.style.display = 'none';
+            
+            if (state.geminiKey && state.craftToken && state.craftDocId) {
+                showApp();
+            } else {
+                populateSettingsForm();
+                settingsModal.classList.add('active');
+            }
+        }
+
+        function populateSettingsForm() {
+            $('gemini-key').value = state.geminiKey;
+            $('craft-token').value = state.craftToken;
+            $('craft-doc-id').value = state.craftDocId;
+        }
+
+        function saveSettings() {
+            const geminiKey = $('gemini-key').value.trim();
+            const craftToken = $('craft-token').value.trim();
+            const craftDocId = $('craft-doc-id').value.trim();
+
+            if (!geminiKey || !craftToken) {
+                alert('Please enter your Gemini API key and Craft API URL');
+                return;
+            }
+
+            // Ensure the Craft URL doesn't have trailing slash
+            state.geminiKey = geminiKey;
+            state.craftToken = craftToken.replace(/\/$/, '');
+            state.craftDocId = craftDocId; // Can be empty
+
+            localStorage.setItem('cyoa_gemini_key', geminiKey);
+            localStorage.setItem('cyoa_craft_token', state.craftToken);
+            localStorage.setItem('cyoa_craft_doc_id', craftDocId);
+
+            settingsModal.classList.remove('active');
+            showApp();
+        }
+
+        async function showApp() {
+            app.classList.add('active');
+            await loadAdventureTree();
+        }
+
+        // ===== CRAFT API =====
+        // Base URL is the full connection URL provided by user (includes /api/v1)
+        function getCraftBaseUrl() {
+            return state.craftToken; // craftToken is actually the full API URL
+        }
+
+        async function craftRequest(endpoint, method = 'GET', body = null) {
+            const headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            };
+
+            const options = { method, headers };
+            if (body) options.body = JSON.stringify(body);
+
+            const baseUrl = getCraftBaseUrl();
+            const url = `${baseUrl}/${endpoint}`;
+            
+            const response = await fetch(url, options);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Craft API error ${response.status}: ${errorText}`);
+            }
+            return response.json();
+        }
+
+        async function loadAdventureTree() {
+            try {
+                // First, list all documents to find ours or let user pick
+                const docsResponse = await craftRequest('documents');
+                const docs = docsResponse.items || [];
+                
+                if (docs.length === 0) {
+                    showError('No documents found in this Craft connection.');
+                    return;
+                }
+
+                // Find the specified doc or use first one
+                let targetDoc = docs.find(d => d.id === state.craftDocId);
+                if (!targetDoc) {
+                    // If no specific doc ID, use the first non-deleted doc
+                    targetDoc = docs.find(d => !d.isDeleted) || docs[0];
+                    state.craftDocId = targetDoc.id;
+                    localStorage.setItem('cyoa_craft_doc_id', targetDoc.id);
+                }
+
+                // Fetch the full document content with all nested blocks
+                const docContent = await craftRequest(`blocks?id=${targetDoc.id}&maxDepth=-1`);
+                
+                // Build tree from blocks - page blocks become branches
+                state.adventureTree = buildTreeFromBlocks(docContent, targetDoc.title);
+                state.currentBranchId = targetDoc.id;
+                
+                renderTree();
+                attachTreeHandlers();
+                await loadBranchContent(targetDoc.id);
+            } catch (error) {
+                console.error('Failed to load adventure tree:', error);
+                showError(`Failed to load from Craft: ${error.message}`);
+            }
+        }
+
+        function buildTreeFromBlocks(block, title = 'Adventure') {
+            const node = {
+                id: block.id,
+                title: extractTitle(block, title),
+                markdown: block.markdown || '',
+                children: [],
+                blocks: [] // Store non-page child blocks for content
+            };
+
+            if (block.content && Array.isArray(block.content)) {
+                for (const child of block.content) {
+                    if (child.type === 'page' || (child.markdown && child.markdown.includes('<page>'))) {
+                        // This is a branch (subpage)
+                        const childNode = buildTreeFromBlocks(child, extractPageTitle(child.markdown));
+                        node.children.push(childNode);
+                    } else {
+                        // Regular content block
+                        node.blocks.push(child);
+                    }
+                }
+            }
+
+            return node;
+        }
+
+        function extractTitle(block, fallback) {
+            if (block.markdown) {
+                // Try to extract from <page> or <pageTitle> tags
+                const pageMatch = block.markdown.match(/<page>([^<]*)<\/page>/);
+                if (pageMatch) return pageMatch[1].trim() || fallback;
+                
+                const titleMatch = block.markdown.match(/<pageTitle>([^<]*)<\/pageTitle>/);
+                if (titleMatch) return titleMatch[1].trim() || fallback;
+            }
+            return fallback;
+        }
+
+        function extractPageTitle(markdown) {
+            if (!markdown) return 'Branch';
+            const match = markdown.match(/<page>([^<]*)<\/page>/);
+            return match ? match[1].trim() || 'Branch' : 'Branch';
+        }
+
+        function renderTree() {
+            if (!state.adventureTree) {
+                treeContent.innerHTML = '<div class="tree-empty">No adventures yet. Start your story below.</div>';
+                return;
+            }
+
+            treeContent.innerHTML = renderTreeNode(state.adventureTree, 0);
+        }
+
+        function renderTreeNode(node, depth) {
+            const isCurrent = node.id === state.currentBranchId;
+            const icon = node.children.length > 0 ? '📂' : '📄';
+            
+            let html = `
+                <div class="tree-node">
+                    <div class="tree-item ${isCurrent ? 'current' : ''}" data-id="${node.id}">
+                        <span class="tree-item-icon">${icon}</span>
+                        <span>${truncate(node.title, 25)}</span>
+                    </div>
+            `;
+
+            if (node.children.length > 0) {
+                for (const child of node.children) {
+                    html += renderTreeNode(child, depth + 1);
+                }
+            }
+
+            html += '</div>';
+            return html;
+        }
+
+        // Add click handlers after rendering
+        function attachTreeHandlers() {
+            document.querySelectorAll('.tree-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const id = item.dataset.id;
+                    navigateToBranch(id);
+                });
+            });
+        }
+
+        async function navigateToBranch(id) {
+            state.currentBranchId = id;
+            state.conversationContext = [];
+            renderTree();
+            attachTreeHandlers();
+            await loadBranchContent(id);
+            $('current-branch-name').textContent = '';
+        }
+
+        async function loadBranchContent(id) {
+            const node = findNode(state.adventureTree, id);
+            if (!node) return;
+
+            // Combine markdown from all content blocks
+            const contentMarkdown = node.blocks
+                .map(b => b.markdown || '')
+                .join('\n')
+                .trim();
+
+            if (!contentMarkdown) {
+                storyContent.innerHTML = `
+                    <div class="welcome-message">
+                        <h2>Your Adventure Awaits</h2>
+                        <p>Begin your story by typing a scene, setting, or situation. 
+                        The AI will weave your narrative, and every choice you make 
+                        will branch into a new path — all saved in your Craft document.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Parse and display content
+            const segments = parseContent(contentMarkdown);
+            storyContent.innerHTML = segments.map(seg => renderSegment(seg)).join('');
+            
+            // Build context from content
+            state.conversationContext = segments.filter(s => s.type !== 'suggestions');
+            
+            scrollToBottom();
+        }
+
+        function findNode(tree, id) {
+            if (!tree) return null;
+            if (tree.id === id) return tree;
+            for (const child of tree.children || []) {
+                const found = findNode(child, id);
+                if (found) return found;
+            }
+            return null;
+        }
+
+        function parseContent(content) {
+            // Clean up Craft markdown tags
+            let cleanContent = content
+                .replace(/<page>.*?<\/page>/g, '')
+                .replace(/<pageTitle>.*?<\/pageTitle>/g, '')
+                .replace(/<content>/g, '')
+                .replace(/<\/content>/g, '')
+                .trim();
+
+            // Simple parser - splits by user inputs marked with >
+            const segments = [];
+            const lines = cleanContent.split('\n');
+            let currentSegment = { type: 'narration', text: '' };
+
+            for (const line of lines) {
+                if (line.startsWith('> ')) {
+                    if (currentSegment.text.trim()) {
+                        segments.push(currentSegment);
+                    }
+                    segments.push({ type: 'user-input', text: line.substring(2) });
+                    currentSegment = { type: 'narration', text: '' };
+                } else if (line.startsWith('**What will you do?**') || line.startsWith('---')) {
+                    // Skip suggestion headers
+                } else if (line.startsWith('• ') || line.startsWith('- ')) {
+                    const bulletContent = line.replace(/^[•\-]\s*/, '').trim();
+                    if (bulletContent) {
+                        if (!currentSegment.suggestions) {
+                            if (currentSegment.text.trim()) {
+                                segments.push(currentSegment);
+                            }
+                            currentSegment = { type: 'suggestions', suggestions: [] };
+                        }
+                        currentSegment.suggestions.push(bulletContent);
+                    }
+                } else {
+                    if (currentSegment.type === 'suggestions') {
+                        segments.push(currentSegment);
+                        currentSegment = { type: 'narration', text: '' };
+                    }
+                    currentSegment.text += line + '\n';
+                }
+            }
+
+            if (currentSegment.text?.trim() || currentSegment.suggestions?.length) {
+                segments.push(currentSegment);
+            }
+
+            return segments;
+        }
+
+        function renderSegment(segment) {
+            if (segment.type === 'user-input') {
+                return `<div class="story-segment user-input">${escapeHtml(segment.text)}</div>`;
+            } else if (segment.type === 'suggestions') {
+                return `
+                    <div class="story-suggestions">
+                        <h4>What will you do?</h4>
+                        ${segment.suggestions.map(s => 
+                            `<div class="suggestion-item" onclick="useSuggestion('${escapeHtml(s)}')">${escapeHtml(s)}</div>`
+                        ).join('')}
+                    </div>
+                `;
+            } else {
+                return `<div class="story-segment narration">${escapeHtml(segment.text)}</div>`;
+            }
+        }
+
+        // Global function for suggestion clicks
+        window.useSuggestion = function(text) {
+            userInput.value = text;
+            userInput.focus();
+        };
+
+        async function createBranch(title) {
+            try {
+                // Create a new page block as a child of the current branch
+                const response = await craftRequest('blocks', 'POST', {
+                    markdown: `<page>${title}</page>`,
+                    position: {
+                        position: 'end',
+                        pageId: state.currentBranchId
+                    }
+                });
+                
+                const newBlockId = response.items?.[0]?.id;
+                if (!newBlockId) {
+                    throw new Error('No block ID returned from Craft');
+                }
+                
+                // Update local tree
+                const parentNode = findNode(state.adventureTree, state.currentBranchId);
+                if (parentNode) {
+                    parentNode.children.push({
+                        id: newBlockId,
+                        title: title,
+                        markdown: `<page>${title}</page>`,
+                        children: [],
+                        blocks: []
+                    });
+                }
+                
+                state.currentBranchId = newBlockId;
+                renderTree();
+                attachTreeHandlers();
+                
+                showBranchNotification(title);
+                
+                return newBlockId;
+            } catch (error) {
+                console.error('Failed to create branch:', error);
+                throw error;
+            }
+        }
+
+        async function writeToCraft(content) {
+            try {
+                // Insert a new text block with the content
+                await craftRequest('blocks', 'POST', {
+                    markdown: content,
+                    position: {
+                        position: 'end',
+                        pageId: state.currentBranchId
+                    }
+                });
+
+                // Update local tree
+                const node = findNode(state.adventureTree, state.currentBranchId);
+                if (node) {
+                    node.blocks.push({
+                        type: 'text',
+                        markdown: content
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to write to Craft:', error);
+            }
+        }
+
+        function showBranchNotification(title) {
+            branchNotification.textContent = `New branch: ${title}`;
+            branchNotification.classList.add('show');
+            setTimeout(() => {
+                branchNotification.classList.remove('show');
+            }, 3000);
+        }
+
+        // ===== GEMINI API =====
+        async function callGemini(prompt) {
+            const systemPrompt = `You are an interactive fiction narrator. The player drives the story through their choices.
+
+RULES:
+- Write vivid, second-person narrative ("You see...", "You feel...")
+- Keep responses 2-4 paragraphs
+- End EVERY response with 2-3 suggested actions (but player can do anything)
+- When player makes a SIGNIFICANT choice that changes direction, prefix your response with [BRANCH: brief title]
+- Never break character or mention game mechanics
+
+FORMAT:
+[Narrative paragraphs]
+
+---
+**What will you do?**
+• [Suggestion 1]
+• [Suggestion 2]
+• [Suggestion 3]`;
+
+            const contents = [
+                { 
+                    role: 'user', 
+                    parts: [{ text: systemPrompt }] 
+                },
+                { 
+                    role: 'model', 
+                    parts: [{ text: 'I understand. I will narrate your adventure in vivid second-person prose, ending each response with suggestions. I will mark significant branching choices with [BRANCH: title]. Let\'s begin your adventure.' }] 
+                }
+            ];
+
+            // Add conversation context
+            for (const ctx of state.conversationContext) {
+                if (ctx.type === 'user-input') {
+                    contents.push({ role: 'user', parts: [{ text: ctx.text }] });
+                } else if (ctx.type === 'narration') {
+                    contents.push({ role: 'model', parts: [{ text: ctx.text }] });
+                }
+            }
+
+            // Add current prompt
+            contents.push({ role: 'user', parts: [{ text: prompt }] });
+
+            const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${state.geminiKey}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: contents,
+                        generationConfig: {
+                            temperature: 0.9,
+                            maxOutputTokens: 1024
+                        }
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+            }
+
+            return response;
+        }
+
+        async function processGeminiStream(response, onChunk) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullText = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                
+                // Process complete SSE events
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const jsonStr = line.substring(6).trim();
+                        if (jsonStr && jsonStr !== '[DONE]') {
+                            try {
+                                const data = JSON.parse(jsonStr);
+                                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                                if (text) {
+                                    fullText += text;
+                                    onChunk(fullText);
+                                }
+                            } catch (e) {
+                                // Skip malformed JSON chunks
+                            }
+                        }
+                    }
+                }
+            }
+
+            return fullText;
+        }
+
+        // ===== MESSAGE HANDLING =====
+        async function handleSend() {
+            const input = userInput.value.trim();
+            if (!input || state.isGenerating) return;
+
+            state.isGenerating = true;
+            sendBtn.disabled = true;
+            userInput.value = '';
+            userInput.style.height = 'auto';
+
+            // Remove welcome message if present
+            const welcome = storyContent.querySelector('.welcome-message');
+            if (welcome) welcome.remove();
+
+            // Add user input to display
+            const userSegment = document.createElement('div');
+            userSegment.className = 'story-segment user-input';
+            userSegment.textContent = input;
+            storyContent.appendChild(userSegment);
+
+            // Add to context
+            state.conversationContext.push({ type: 'user-input', text: input });
+
+            // Create loading indicator
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'story-segment narration loading';
+            storyContent.appendChild(loadingDiv);
+            scrollToBottom();
+
+            let fullResponse = '';
+            let branchTitle = null;
+
+            try {
+                const response = await callGemini(input);
+                loadingDiv.classList.remove('loading');
+
+                fullResponse = await processGeminiStream(response, (text) => {
+                    loadingDiv.innerHTML = formatNarration(text);
+                    scrollToBottom();
+                });
+
+                // Final render
+                loadingDiv.innerHTML = formatNarration(fullResponse);
+
+                // Check for branch marker
+                const branchMatch = fullResponse.match(/\[BRANCH:\s*([^\]]+)\]/);
+                if (branchMatch) {
+                    branchTitle = branchMatch[1].trim();
+                    fullResponse = fullResponse.replace(/\[BRANCH:\s*[^\]]+\]\s*/, '');
+                    loadingDiv.innerHTML = formatNarration(fullResponse);
+                }
+
+                // Add to context
+                state.conversationContext.push({ type: 'narration', text: fullResponse });
+
+                // Write to Craft
+                const craftContent = `> ${input}\n\n${fullResponse}`;
+                
+                if (branchTitle) {
+                    await createBranch(branchTitle);
+                }
+                
+                await writeToCraft(craftContent);
+
+            } catch (error) {
+                console.error('Generation error:', error);
+                loadingDiv.innerHTML = `<div class="error-message">Error: ${error.message}. Please try again.</div>`;
+            }
+
+            state.isGenerating = false;
+            sendBtn.disabled = false;
+            userInput.focus();
+        }
+
+        function formatNarration(text) {
+            // Convert markdown-style formatting
+            let html = escapeHtml(text);
+            
+            // Handle suggestions section
+            if (html.includes('**What will you do?**')) {
+                const parts = html.split('---');
+                if (parts.length > 1) {
+                    const narration = parts[0];
+                    const suggestionsText = parts.slice(1).join('---');
+                    
+                    const suggestions = suggestionsText.match(/•\s*([^\n•]+)/g) || [];
+                    const suggestionHtml = suggestions.map(s => {
+                        const text = s.replace(/^•\s*/, '').trim();
+                        return `<div class="suggestion-item" onclick="useSuggestion(\`${text.replace(/`/g, '\\`')}\`)">${text}</div>`;
+                    }).join('');
+
+                    return `
+                        ${narration}
+                        <div class="story-suggestions">
+                            <h4>What will you do?</h4>
+                            ${suggestionHtml}
+                        </div>
+                    `;
+                }
+            }
+            
+            return html;
+        }
+
+        // ===== UTILITIES =====
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function truncate(str, len) {
+            return str.length > len ? str.substring(0, len) + '...' : str;
+        }
+
+        function scrollToBottom() {
+            storyContainer.scrollTop = storyContainer.scrollHeight;
+        }
+
+        function showError(message) {
+            storyContent.innerHTML = `<div class="error-message">${escapeHtml(message)}</div>`;
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
