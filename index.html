@@ -736,6 +736,10 @@
             border-color: var(--amber);
             color: var(--amber);
         }
+
+        .story-suggestions.no-options .add-option-btn {
+            opacity: 1;
+        }
         
         .suggestion-item {
             display: flex;
@@ -1538,9 +1542,9 @@
                     </div>`;
             }
 
-            // Show child pages as options
-            if (node.children && node.children.length > 0) {
-                const optionsHtml = node.children.map(child => {
+            // Show child pages as options (always show container if page has content)
+            if (node.content && node.content.trim()) {
+                const optionsHtml = (node.children || []).map(child => {
                     const hasChildContent = child.content && child.content.trim().length > 0;
                     const statusClass = hasChildContent ? 'explored' : 'unexplored';
                     const statusIcon = hasChildContent ? '✓' : '→';
@@ -1554,8 +1558,9 @@
                         </div>`;
                 }).join('');
 
+                const hasOptions = node.children && node.children.length > 0;
                 html += `
-                    <div class="story-suggestions">
+                    <div class="story-suggestions ${hasOptions ? '' : 'no-options'}">
                         <h4>
                             <span>What will you do?</span>
                             <button class="add-option-btn" onclick="addNewOption()">+ New option</button>
