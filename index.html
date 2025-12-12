@@ -388,6 +388,59 @@
             .header-title {
                 display: none;
             }
+
+            /* Compact model selector on mobile */
+            .model-indicator {
+                font-size: 10px;
+                padding: 4px 8px;
+                max-width: 90px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .model-dropdown {
+                right: 0;
+                left: auto;
+            }
+
+            /* Prevent iOS zoom on input focus (requires 16px min) */
+            input, textarea, select {
+                font-size: 16px !important;
+            }
+
+            /* Swipe-to-reveal for options on mobile */
+            .suggestion-item {
+                position: relative;
+                overflow: hidden;
+            }
+
+            .suggestion-item .option-actions {
+                position: absolute;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                display: flex;
+                align-items: center;
+                background: var(--bg-panel);
+                padding: 0 8px;
+                opacity: 1;
+                transform: translateX(100%);
+                transition: transform 0.2s ease-out;
+            }
+
+            .suggestion-item.swiped .option-actions {
+                transform: translateX(0);
+            }
+
+            /* Disable hover reveal on touch */
+            .suggestion-item:hover .option-actions {
+                transform: translateX(100%);
+            }
+
+            .suggestion-item.swiped:hover .option-actions {
+                transform: translateX(0);
+            }
         }
         
         .header-right {
@@ -790,20 +843,11 @@
             font-size: 11px;
             cursor: pointer;
             transition: all 0.2s;
-            opacity: 0;
-        }
-
-        .story-suggestions:hover .add-option-btn {
-            opacity: 1;
         }
 
         .add-option-btn:hover {
             border-color: var(--amber);
             color: var(--amber);
-        }
-
-        .story-suggestions.no-options .add-option-btn {
-            opacity: 1;
         }
         
         .suggestion-item {
@@ -1326,6 +1370,63 @@ Suggest 2 possible actions the player could take next. Return ONLY a JSON array.
             // Refresh modal handlers
             $('refresh-confirm').addEventListener('click', confirmRefresh);
             $('refresh-cancel').addEventListener('click', cancelRefresh);
+
+            // Mobile swipe handlers (delegated)
+            setupSwipeHandlers();
+        }
+
+        // Setup swipe-to-reveal for mobile
+        function setupSwipeHandlers() {
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let currentSwiped = null;
+
+            document.addEventListener('touchstart', (e) => {
+                const item = e.target.closest('.suggestion-item');
+                if (!item) {
+                    // Tap outside - close any open swipe
+                    if (currentSwiped) {
+                        currentSwiped.classList.remove('swiped');
+                        currentSwiped = null;
+                    }
+                    return;
+                }
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }, { passive: true });
+
+            document.addEventListener('touchend', (e) => {
+                const item = e.target.closest('.suggestion-item');
+                if (!item) return;
+
+                const touchEndX = e.changedTouches[0].clientX;
+                const touchEndY = e.changedTouches[0].clientY;
+                const deltaX = touchStartX - touchEndX;
+                const deltaY = Math.abs(touchStartY - touchEndY);
+
+                // Only handle horizontal swipes (not scrolling)
+                if (deltaY > 30) return;
+
+                if (deltaX > 50) {
+                    // Swipe left - reveal actions
+                    if (currentSwiped && currentSwiped !== item) {
+                        currentSwiped.classList.remove('swiped');
+                    }
+                    item.classList.add('swiped');
+                    currentSwiped = item;
+                    e.preventDefault();
+                } else if (deltaX < -50) {
+                    // Swipe right - hide actions
+                    item.classList.remove('swiped');
+                    if (currentSwiped === item) currentSwiped = null;
+                } else if (Math.abs(deltaX) < 10) {
+                    // Tap - navigate if not swiped, or close if swiped
+                    if (item.classList.contains('swiped')) {
+                        item.classList.remove('swiped');
+                        currentSwiped = null;
+                    }
+                }
+            }, { passive: false });
         }
 
         let startHandled = false;
