@@ -6,6 +6,8 @@ HTML app: AI narrator (via OpenRouter) + Craft doc as persistent save file. Play
 ## Craft API (Multi-Document Block-Based)
 Base: `https://connect.craft.do/links/{LINK_ID}/api/v1`
 
+> **Full API Reference:** See [CRAFT_API.md](./CRAFT_API.md) for complete endpoint documentation, parameters, and examples.
+
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/documents` | GET | List docs `{items: [{id, title, isDeleted}]}` |
