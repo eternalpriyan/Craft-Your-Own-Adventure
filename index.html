@@ -52,17 +52,6 @@
             z-index: 9999;
         }
         
-        /* Screen flicker effect */
-        @keyframes flicker {
-            0%, 100% { opacity: 1; }
-            92% { opacity: 1; }
-            93% { opacity: 0.8; }
-            94% { opacity: 1; }
-        }
-        
-        body {
-            animation: flicker 8s infinite;
-        }
         
         /* ===== SPLASH SCREEN ===== */
         #splash {
@@ -501,29 +490,118 @@
             padding: 15px;
             background: rgba(255, 176, 0, 0.05);
             border-left: 2px solid var(--amber-dim);
+            position: relative;
         }
-        
+
         .story-suggestions h4 {
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 1px;
             color: var(--amber-dim);
             margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .add-option-btn {
+            background: none;
+            border: 1px dashed var(--border);
+            color: var(--text-dim);
+            padding: 4px 10px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+            opacity: 0;
+        }
+
+        .story-suggestions:hover .add-option-btn {
+            opacity: 1;
+        }
+
+        .add-option-btn:hover {
+            border-color: var(--amber);
+            color: var(--amber);
         }
         
         .suggestion-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
             padding: 8px 0;
             color: var(--amber-dim);
             cursor: pointer;
             transition: color 0.2s;
         }
-        
+
         .suggestion-item:hover {
             color: var(--amber-bright);
         }
-        
-        .suggestion-item::before {
+
+        .suggestion-item .option-text {
+            flex: 1;
+        }
+
+        .suggestion-item .option-text::before {
             content: '• ';
+        }
+
+        .suggestion-item .option-actions {
+            display: flex;
+            gap: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .suggestion-item:hover .option-actions {
+            opacity: 1;
+        }
+
+        .option-btn {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            padding: 2px 6px;
+            font-size: 12px;
+            transition: color 0.2s;
+        }
+
+        .option-btn:hover {
+            color: var(--amber-bright);
+        }
+
+        .option-btn.delete:hover {
+            color: #ff5050;
+        }
+
+        /* Inline edit mode */
+        .suggestion-item.editing {
+            cursor: default;
+        }
+
+        .suggestion-item.editing .option-text {
+            display: none;
+        }
+
+        .suggestion-item.editing .option-actions {
+            display: none;
+        }
+
+        .option-edit-input {
+            flex: 1;
+            padding: 6px 10px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 14px;
+            background: var(--bg-dark);
+            border: 1px solid var(--amber-dim);
+            color: var(--amber);
+            outline: none;
+        }
+
+        .option-edit-input:focus {
+            border-color: var(--amber);
         }
         
         .welcome-message {
@@ -543,67 +621,6 @@
             max-width: 500px;
             margin: 0 auto;
             line-height: 1.6;
-        }
-        
-        /* Input Area */
-        .input-container {
-            padding: 20px 30px;
-            background: var(--bg-panel);
-            border-top: 1px solid var(--border);
-        }
-        
-        .input-wrapper {
-            max-width: 700px;
-            margin: 0 auto;
-            display: flex;
-            gap: 15px;
-        }
-        
-        .input-field {
-            flex: 1;
-            padding: 15px;
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 14px;
-            background: var(--bg-dark);
-            border: 1px solid var(--border);
-            color: var(--amber);
-            outline: none;
-            resize: none;
-            min-height: 50px;
-            max-height: 150px;
-            transition: border-color 0.2s;
-        }
-        
-        .input-field:focus {
-            border-color: var(--amber);
-        }
-        
-        .input-field::placeholder {
-            color: var(--text-dim);
-        }
-        
-        .send-btn {
-            padding: 15px 25px;
-            font-family: 'VT323', monospace;
-            font-size: 18px;
-            background: var(--amber);
-            border: none;
-            color: var(--bg-dark);
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.2s;
-            align-self: flex-end;
-        }
-        
-        .send-btn:hover:not(:disabled) {
-            background: var(--amber-bright);
-            box-shadow: 0 0 20px var(--amber-glow);
-        }
-        
-        .send-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
         }
         
         /* Loading indicator */
@@ -670,6 +687,68 @@
             padding: 15px;
             margin: 20px 0;
             font-size: 13px;
+        }
+
+        /* Delete Modal */
+        #delete-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 300;
+        }
+
+        #delete-modal.active {
+            display: flex;
+        }
+
+        .delete-modal-content {
+            background: var(--bg-panel);
+            border: 1px solid #ff5050;
+            padding: 30px 40px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 0 40px rgba(255, 80, 80, 0.2);
+        }
+
+        .delete-modal-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            color: #ff5050;
+        }
+
+        .delete-modal-content h3 {
+            font-family: 'VT323', monospace;
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: var(--amber);
+        }
+
+        .delete-modal-content p {
+            color: var(--amber-dim);
+            font-size: 14px;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .delete-modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .btn-danger {
+            background: #ff5050;
+            border: none;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background: #ff6b6b;
+            box-shadow: 0 0 20px rgba(255, 80, 80, 0.3);
         }
     </style>
 </head>
@@ -780,21 +859,10 @@
                 <div class="story-content" id="story-content">
                     <div class="welcome-message">
                         <h2>Your Adventure Awaits</h2>
-                        <p>Begin your story by typing a scene, setting, or situation. 
-                        The AI will weave your narrative, and every choice you make 
+                        <p>Begin your story by typing a scene, setting, or situation.
+                        The AI will weave your narrative, and every choice you make
                         will branch into a new path — all saved in your Craft document.</p>
                     </div>
-                </div>
-            </div>
-            <div class="input-container">
-                <div class="input-wrapper">
-                    <textarea 
-                        class="input-field" 
-                        id="user-input" 
-                        placeholder="What do you do? (or describe how your adventure begins...)"
-                        rows="1"
-                    ></textarea>
-                    <button class="send-btn" id="send-btn">Send</button>
                 </div>
             </div>
         </main>
@@ -803,6 +871,19 @@
     <!-- Branch Notification -->
     <div class="branch-notification" id="branch-notification">
         New branch created!
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal">
+        <div class="delete-modal-content">
+            <div class="delete-modal-icon">⚠</div>
+            <h3>Delete Option?</h3>
+            <p id="delete-modal-text">Are you sure you want to delete this option?</p>
+            <div class="delete-modal-buttons">
+                <button class="btn btn-secondary" id="delete-cancel">Cancel</button>
+                <button class="btn btn-danger" id="delete-confirm">Delete</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -835,8 +916,6 @@
         const treeContent = $('tree-content');
         const storyContent = $('story-content');
         const storyContainer = $('story-container');
-        const userInput = $('user-input');
-        const sendBtn = $('send-btn');
         const branchNotification = $('branch-notification');
 
         // ===== INITIALIZATION =====
@@ -867,20 +946,9 @@
                 $('tree-toggle').classList.toggle('active');
             });
 
-            // Input handlers
-            sendBtn.addEventListener('click', handleSend);
-            userInput.addEventListener('keydown', e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                }
-            });
-
-            // Auto-resize textarea
-            userInput.addEventListener('input', () => {
-                userInput.style.height = 'auto';
-                userInput.style.height = Math.min(userInput.scrollHeight, 150) + 'px';
-            });
+            // Delete modal handlers
+            $('delete-confirm').addEventListener('click', confirmDelete);
+            $('delete-cancel').addEventListener('click', cancelDelete);
         }
 
         function handleStart() {
@@ -1091,13 +1159,11 @@
         async function loadPage(pageId) {
             state.currentBranchId = pageId;
             state.isGenerating = true;
-            sendBtn.disabled = true;
 
             const node = findNode(state.adventureTree, pageId);
             if (!node) {
                 console.error('Node not found:', pageId);
                 state.isGenerating = false;
-                sendBtn.disabled = false;
                 return;
             }
 
@@ -1136,7 +1202,6 @@
                     console.error('Generation error:', error);
                     storyContent.innerHTML = `<div class="error-message">Error: ${error.message}</div>`;
                     state.isGenerating = false;
-                    sendBtn.disabled = false;
                     return;
                 }
             }
@@ -1148,8 +1213,6 @@
             attachTreeHandlers();
 
             state.isGenerating = false;
-            sendBtn.disabled = false;
-            userInput.focus();
         }
 
         // Display page content and child pages as options
@@ -1175,12 +1238,22 @@
                     const hasChildContent = child.content && child.content.trim().length > 0;
                     const statusClass = hasChildContent ? 'explored' : 'unexplored';
                     const statusIcon = hasChildContent ? '✓' : '→';
-                    return `<div class="suggestion-item ${statusClass}" onclick="selectOption('${child.id}')">${statusIcon} ${escapeHtml(child.title)}</div>`;
+                    return `
+                        <div class="suggestion-item ${statusClass}" data-page-id="${child.id}">
+                            <span class="option-text" onclick="selectOption('${child.id}')">${statusIcon} ${escapeHtml(child.title)}</span>
+                            <div class="option-actions">
+                                <button class="option-btn edit" onclick="editOption(event, '${child.id}')" title="Edit">✎</button>
+                                <button class="option-btn delete" onclick="deleteOption(event, '${child.id}')" title="Delete">✕</button>
+                            </div>
+                        </div>`;
                 }).join('');
 
                 html += `
                     <div class="story-suggestions">
-                        <h4>What will you do?</h4>
+                        <h4>
+                            <span>What will you do?</span>
+                            <button class="add-option-btn" onclick="addNewOption()">+ New option</button>
+                        </h4>
                         ${optionsHtml}
                     </div>
                 `;
@@ -1290,11 +1363,228 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
             loadPage(pageId);
         };
 
-        // Global function for custom input (legacy - now uses handleSend)
-        window.useSuggestion = function(text) {
-            userInput.value = text;
-            handleSend();
+        // Edit an option inline
+        window.editOption = function(event, pageId) {
+            event.stopPropagation();
+            if (state.isGenerating) return;
+
+            // Capture parent ID at edit start
+            const parentId = state.currentBranchId;
+            const node = findNode(state.adventureTree, pageId);
+            if (!node) return;
+
+            const itemEl = event.target.closest('.suggestion-item');
+            if (!itemEl) return;
+
+            // Enter edit mode
+            itemEl.classList.add('editing');
+
+            // Create input field
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'option-edit-input';
+            input.value = node.title;
+            input.dataset.pageId = pageId;
+            input.dataset.originalTitle = node.title;
+
+            const refreshDisplay = () => {
+                const parentNode = findNode(state.adventureTree, parentId);
+                if (parentNode) {
+                    displayPage(parentNode);
+                    renderTree();
+                    attachTreeHandlers();
+                }
+            };
+
+            // Handle Enter to save, Escape to cancel
+            input.addEventListener('keydown', async (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const newTitle = input.value.trim();
+                    if (newTitle && newTitle !== node.title) {
+                        await updateOptionTitle(pageId, newTitle, parentId);
+                    } else {
+                        refreshDisplay();
+                    }
+                } else if (e.key === 'Escape') {
+                    refreshDisplay();
+                }
+            });
+
+            // Also cancel on blur
+            input.addEventListener('blur', () => {
+                setTimeout(() => {
+                    if (!document.contains(input)) return;
+                    refreshDisplay();
+                }, 100);
+            });
+
+            itemEl.appendChild(input);
+            input.focus();
+            input.select();
         };
+
+        // Delete an option - show custom modal
+        window.deleteOption = function(event, pageId) {
+            event.stopPropagation();
+            if (state.isGenerating) return;
+
+            const node = findNode(state.adventureTree, pageId);
+            if (!node) return;
+
+            // Show custom delete modal
+            const modal = $('delete-modal');
+            const modalText = $('delete-modal-text');
+            modalText.textContent = `"${truncate(node.title, 40)}"`;
+            modal.classList.add('active');
+
+            // Store pageId and parentId for confirm handler
+            modal.dataset.pageId = pageId;
+            modal.dataset.parentId = state.currentBranchId;
+        };
+
+        // Confirm delete from modal
+        async function confirmDelete() {
+            const modal = $('delete-modal');
+            const pageId = modal.dataset.pageId;
+            const parentId = modal.dataset.parentId;
+            modal.classList.remove('active');
+
+            if (!pageId || !parentId) return;
+
+            // Optimistic UI - remove immediately
+            const parentNode = findNode(state.adventureTree, parentId);
+            if (parentNode) {
+                parentNode.children = parentNode.children.filter(c => c.id !== pageId);
+                displayPage(parentNode);
+                renderTree();
+                attachTreeHandlers();
+            }
+
+            // Sync with Craft in background
+            deleteBlock(pageId).catch(error => {
+                console.error('Failed to sync delete with Craft:', error);
+            });
+        }
+
+        function cancelDelete() {
+            $('delete-modal').classList.remove('active');
+        }
+
+        // Add a new option
+        window.addNewOption = async function() {
+            if (state.isGenerating) return;
+
+            const parentId = state.currentBranchId;
+            const parentNode = findNode(state.adventureTree, parentId);
+            if (!parentNode) return;
+
+            // Create temporary placeholder in local tree
+            const tempId = 'temp-' + Date.now();
+            const newNode = {
+                id: tempId,
+                title: '',
+                content: '',
+                children: []
+            };
+            parentNode.children.push(newNode);
+
+            // Re-render to show the new option
+            displayPage(parentNode);
+            renderTree();
+            attachTreeHandlers();
+
+            // Find the new item and trigger edit mode
+            const newItem = document.querySelector(`[data-page-id="${tempId}"]`);
+            if (newItem) {
+                newItem.classList.add('editing');
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'option-edit-input';
+                input.placeholder = 'Enter option text...';
+                input.dataset.pageId = tempId;
+                input.dataset.isNew = 'true';
+
+                const cancelNewOption = () => {
+                    const currentParent = findNode(state.adventureTree, parentId);
+                    if (currentParent) {
+                        currentParent.children = currentParent.children.filter(c => c.id !== tempId);
+                        displayPage(currentParent);
+                        renderTree();
+                        attachTreeHandlers();
+                    }
+                };
+
+                input.addEventListener('keydown', async (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const title = input.value.trim();
+                        if (title) {
+                            await saveNewOption(tempId, title, parentId);
+                        } else {
+                            cancelNewOption();
+                        }
+                    } else if (e.key === 'Escape') {
+                        cancelNewOption();
+                    }
+                });
+
+                input.addEventListener('blur', () => {
+                    setTimeout(() => {
+                        // Check if input still exists (wasn't already handled by Enter/Escape)
+                        if (!document.contains(input)) return;
+                        const title = input.value.trim();
+                        if (title) {
+                            saveNewOption(tempId, title, parentId);
+                        } else {
+                            cancelNewOption();
+                        }
+                    }, 100);
+                });
+
+                newItem.appendChild(input);
+                input.focus();
+            }
+        };
+
+        // Save a new option to Craft
+        async function saveNewOption(tempId, title, parentId) {
+            const parentNode = findNode(state.adventureTree, parentId);
+            if (!parentNode) return;
+
+            // Update local tree immediately with title
+            const tempNode = parentNode.children.find(c => c.id === tempId);
+            if (tempNode) {
+                tempNode.title = title;
+            }
+
+            // Refresh display instantly
+            displayPage(parentNode);
+            renderTree();
+            attachTreeHandlers();
+
+            // Create in Craft in background (don't use createEmptyChildPage - it adds to tree)
+            try {
+                const response = await craftRequest('blocks', 'POST', {
+                    markdown: `<page>${title}</page>`,
+                    position: {
+                        position: 'end',
+                        pageId: parentId
+                    }
+                });
+
+                const newPageId = response.items?.[0]?.id;
+                if (newPageId && tempNode) {
+                    // Update the temp ID to real ID
+                    tempNode.id = newPageId;
+                    renderTree();
+                    attachTreeHandlers();
+                }
+            } catch (error) {
+                console.error('Failed to create option in Craft:', error);
+            }
+        }
 
         async function writeToCraft(content) {
             try {
@@ -1320,6 +1610,42 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
                 console.error('Failed to write to Craft:', error);
                 throw error;
             }
+        }
+
+        // Update option title in Craft (optimistic UI)
+        async function updateOptionTitle(pageId, newTitle, parentId) {
+            // Update local tree immediately
+            const node = findNode(state.adventureTree, pageId);
+            if (node) {
+                node.title = newTitle;
+            }
+
+            // Refresh display instantly using captured parentId
+            const parentNode = findNode(state.adventureTree, parentId);
+            if (parentNode) {
+                displayPage(parentNode);
+                renderTree();
+                attachTreeHandlers();
+            }
+
+            // Sync with Craft in background
+            craftRequest('blocks', 'PUT', {
+                blocks: [{
+                    id: pageId,
+                    markdown: newTitle
+                }]
+            }).catch(error => {
+                console.error('Failed to sync with Craft:', error);
+            });
+        }
+
+        // Delete a block from Craft
+        async function deleteBlock(blockId) {
+            // Craft API uses DELETE /blocks with JSON body containing blockIds array
+            const response = await craftRequest('blocks', 'DELETE', {
+                blockIds: [blockId]
+            });
+            return response;
         }
 
         function showBranchNotification(title) {
@@ -1436,29 +1762,6 @@ FORMAT:
             }
 
             return fullText;
-        }
-
-        // ===== MESSAGE HANDLING =====
-        // User types custom message → create empty child page → loadPage (triggers generation)
-        async function handleSend() {
-            const input = userInput.value.trim();
-            if (!input || state.isGenerating) return;
-
-            userInput.value = '';
-            userInput.style.height = 'auto';
-
-            try {
-                // Create empty child page with user's input as title
-                const newPageId = await createEmptyChildPage(state.currentBranchId, input);
-
-                if (newPageId) {
-                    // Load the new page (will generate content since empty)
-                    await loadPage(newPageId);
-                }
-            } catch (error) {
-                console.error('Failed to create page:', error);
-                storyContent.innerHTML += `<div class="error-message">Error: ${error.message}</div>`;
-            }
         }
 
         // ===== UTILITIES =====
