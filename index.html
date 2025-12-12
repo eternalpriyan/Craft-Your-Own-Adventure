@@ -415,6 +415,14 @@
                 overflow: hidden;
             }
 
+            .suggestion-item .option-text {
+                transition: transform 0.2s ease-out;
+            }
+
+            .suggestion-item.swiped .option-text {
+                transform: translateX(-60px);
+            }
+
             .suggestion-item .option-actions {
                 position: absolute;
                 right: 0;
@@ -441,6 +449,21 @@
             .suggestion-item.swiped:hover .option-actions {
                 transform: translateX(0);
             }
+
+            /* Mobile hint */
+            .mobile-hint {
+                display: block;
+                text-align: center;
+                font-size: 11px;
+                color: var(--text-dim);
+                padding: 8px;
+                opacity: 0.6;
+            }
+        }
+
+        /* Hide mobile hint on desktop */
+        .mobile-hint {
+            display: none;
         }
         
         .header-right {
@@ -1379,6 +1402,7 @@ Suggest 2 possible actions the player could take next. Return ONLY a JSON array.
         function setupSwipeHandlers() {
             let touchStartX = 0;
             let touchStartY = 0;
+            let touchStartTime = 0;
             let currentSwiped = null;
 
             document.addEventListener('touchstart', (e) => {
@@ -1393,16 +1417,21 @@ Suggest 2 possible actions the player could take next. Return ONLY a JSON array.
                 }
                 touchStartX = e.touches[0].clientX;
                 touchStartY = e.touches[0].clientY;
+                touchStartTime = Date.now();
             }, { passive: true });
 
             document.addEventListener('touchend', (e) => {
                 const item = e.target.closest('.suggestion-item');
                 if (!item) return;
 
+                // Skip if tapping on action buttons
+                if (e.target.closest('.option-actions')) return;
+
                 const touchEndX = e.changedTouches[0].clientX;
                 const touchEndY = e.changedTouches[0].clientY;
                 const deltaX = touchStartX - touchEndX;
                 const deltaY = Math.abs(touchStartY - touchEndY);
+                const elapsed = Date.now() - touchStartTime;
 
                 // Only handle horizontal swipes (not scrolling)
                 if (deltaY > 30) return;
@@ -1419,11 +1448,19 @@ Suggest 2 possible actions the player could take next. Return ONLY a JSON array.
                     // Swipe right - hide actions
                     item.classList.remove('swiped');
                     if (currentSwiped === item) currentSwiped = null;
-                } else if (Math.abs(deltaX) < 10) {
-                    // Tap - navigate if not swiped, or close if swiped
+                } else if (Math.abs(deltaX) < 15 && elapsed < 300) {
+                    // Quick tap - navigate or close swiped
                     if (item.classList.contains('swiped')) {
                         item.classList.remove('swiped');
                         currentSwiped = null;
+                    } else {
+                        // Navigate immediately
+                        const pageId = item.dataset.pageId;
+                        if (pageId && !state.isGenerating) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            loadPage(pageId);
+                        }
                     }
                 }
             }, { passive: false });
@@ -1876,6 +1913,7 @@ Suggest 2 possible actions the player could take next. Return ONLY a JSON array.
                             <button class="add-option-btn" onclick="addNewOption()">+ New option</button>
                         </h4>
                         ${optionsHtml}
+                        ${hasOptions ? '<div class="mobile-hint">Swipe left on option to edit or delete</div>' : ''}
                     </div>
                 `;
             }
