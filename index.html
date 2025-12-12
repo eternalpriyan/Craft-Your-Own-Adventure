@@ -1072,14 +1072,7 @@
 
         <main class="main-content">
             <div class="story-container" id="story-container">
-                <div class="story-content" id="story-content">
-                    <div class="welcome-message">
-                        <h2>Your Adventure Awaits</h2>
-                        <p>Begin your story by typing a scene, setting, or situation.
-                        The AI will weave your narrative, and every choice you make
-                        will branch into a new path — all saved in your Craft document.</p>
-                    </div>
-                </div>
+                <div class="story-content" id="story-content"></div>
             </div>
         </main>
     </div>
@@ -1304,6 +1297,7 @@
                 return;
             }
             state.isLoadingTree = true;
+            storyContent.innerHTML = '<div class="story-segment narration loading">Generating story...</div>';
 
             try {
                 // First, list all documents to find ours or let user pick
@@ -1453,31 +1447,54 @@
 
             if (!hasContent) {
                 // EMPTY PAGE: Generate content
-                console.log('Page empty, generating content for:', node.title);
+                const isRoot = node.id === state.adventureTree?.id;
+                console.log('Page empty, generating content for:', node.title, isRoot ? '(root)' : '');
 
                 storyContent.innerHTML = '<div class="story-segment narration loading">Generating story...</div>';
                 scrollToBottom();
 
                 try {
-                    // Generate narrative (mock)
-                    const narrative = await generateNarrative(node.title);
+                    let narrative, options;
 
-                    // Generate options (mock)
-                    const options = await generateOptions(narrative);
-
-                    // Write narrative to Craft page
-                    await writeToCraft(narrative);
-
-                    // Update local node
-                    node.content = narrative;
-
-                    // Create empty child pages for each option
-                    for (const optionTitle of options) {
-                        await createEmptyChildPage(pageId, optionTitle);
+                    if (isRoot) {
+                        // EMPTY ROOT: Use predetermined welcome message and starter options
+                        narrative = `Welcome, Adventurer. Your story awaits. Pick a path below to begin, or rewrite these options to craft something uniquely yours. Every choice branches into new possibilities, all preserved in your Craft document as a living record of your tale.`;
+                        options = [
+                            "Into the Dragon's Lair",
+                            "The Lost Temple Adventure",
+                            "The Space Odyssey"
+                        ];
+                    } else {
+                        // Normal empty page: generate via AI
+                        narrative = await generateNarrative(node.title);
+                        options = await generateOptions(narrative);
                     }
 
-                    // Refresh tree from Craft to get new children
-                    await refreshNode(pageId);
+                    // Update local tree immediately (optimistic UI)
+                    node.content = narrative;
+
+                    // Add children to local tree with temp IDs
+                    for (const optionTitle of options) {
+                        const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                        node.children.push({
+                            id: tempId,
+                            title: optionTitle,
+                            content: '',
+                            children: []
+                        });
+                    }
+
+                    // Display immediately - don't wait for Craft
+                    displayPage(node);
+                    updateBackButton();
+                    state.isGenerating = false;
+
+                    // Sync to Craft in background (fire and forget)
+                    syncPageToCraft(pageId, narrative, options).catch(err => {
+                        console.error('Background Craft sync failed:', err);
+                    });
+
+                    return; // Already displayed, exit early
 
                 } catch (error) {
                     console.error('Generation error:', error);
@@ -1545,16 +1562,6 @@
                 `;
             }
 
-            // Show welcome message if root with no content and no children
-            if (isRoot && !node.content?.trim() && (!node.children || node.children.length === 0)) {
-                html = `
-                    <div class="welcome-message">
-                        <h2>Your Adventure Awaits</h2>
-                        <p>Begin your story by typing a scene, setting, or situation.</p>
-                    </div>
-                `;
-            }
-
             storyContent.innerHTML = html;
             scrollToBottom();
         }
@@ -1581,6 +1588,44 @@
             }
         }
 
+        // Background sync to Craft (optimistic UI - display first, sync later)
+        async function syncPageToCraft(pageId, narrative, options) {
+            const node = findNode(state.adventureTree, pageId);
+            if (!node) return;
+
+            // 1. Write narrative to Craft
+            await writeToCraft(narrative);
+
+            // 2. Create child pages in Craft and update local IDs
+            for (let i = 0; i < options.length; i++) {
+                const optionTitle = options[i];
+                try {
+                    const response = await craftRequest('blocks', 'POST', {
+                        markdown: `<page>${optionTitle}</page>`,
+                        position: {
+                            position: 'end',
+                            pageId: pageId
+                        }
+                    });
+
+                    const newPageId = response.items?.[0]?.id;
+                    if (newPageId && node.children[i] && node.children[i].id.startsWith('temp-')) {
+                        // Update temp ID to real Craft ID
+                        node.children[i].id = newPageId;
+                    }
+                } catch (err) {
+                    console.error('Failed to create option in Craft:', optionTitle, err);
+                }
+            }
+
+            // Re-render if still on this page (so onclick handlers get real IDs)
+            if (state.currentBranchId === pageId) {
+                displayPage(node);
+            }
+
+            console.log('Background Craft sync complete for:', pageId);
+        }
+
         // ===== MOCK AI FUNCTIONS =====
         async function generateNarrative(choice) {
             await new Promise(r => setTimeout(r, 500)); // Simulate delay
@@ -1599,37 +1644,6 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
                 "Follow the mysterious stranger",
                 "Return to the village"
             ];
-        }
-
-        // Create an empty child page under parent
-        async function createEmptyChildPage(parentId, title) {
-            try {
-                const response = await craftRequest('blocks', 'POST', {
-                    markdown: `<page>${title}</page>`,
-                    position: {
-                        position: 'end',
-                        pageId: parentId
-                    }
-                });
-
-                const newBlockId = response.items?.[0]?.id;
-                if (newBlockId) {
-                    // Add to local tree
-                    const parentNode = findNode(state.adventureTree, parentId);
-                    if (parentNode) {
-                        parentNode.children.push({
-                            id: newBlockId,
-                            title: title,
-                            content: '',
-                            children: []
-                        });
-                    }
-                }
-                return newBlockId;
-            } catch (error) {
-                console.error('Failed to create child page:', error);
-                throw error;
-            }
         }
 
         function findNode(tree, id) {
@@ -2074,6 +2088,10 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
                 if (newPageId && tempNode) {
                     // Update the temp ID to real ID
                     tempNode.id = newPageId;
+                    // Re-render if still on this page (so onclick handlers get real ID)
+                    if (state.currentBranchId === parentId) {
+                        displayPage(parentNode);
+                    }
                 }
             } catch (error) {
                 console.error('Failed to create option in Craft:', error);
