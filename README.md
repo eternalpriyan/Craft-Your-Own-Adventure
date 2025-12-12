@@ -9,7 +9,7 @@ A choose-your-own-adventure game that uses [Craft Docs](https://www.craft.do/) a
 ## Features
 
 - **Branching narratives** — Each choice creates a subpage in Craft. Your story tree is preserved and explorable.
-- **AI-generated stories** — Uses OpenRouter to access free LLMs (DeepSeek, Mistral, Gemma, Llama).
+- **AI-generated stories** — Uses Google Gemini API (2.5 Flash free tier, or paid models).
 - **Edit & refresh** — Don't like the narrative? Edit it directly or regenerate with guidance.
 - **Inline option editing** — Rename, delete, or add new options on the fly.
 - **Dark/Light mode** — Toggle between warm amber terminal and light parchment themes.
@@ -37,12 +37,11 @@ A choose-your-own-adventure game that uses [Craft Docs](https://www.craft.do/) a
 
 ## Setup
 
-You'll need two API credentials:
-
-### 1. OpenRouter API Key
-1. Go to [openrouter.ai](https://openrouter.ai/)
-2. Create an account and get your API key
-3. Free tier available (rate-limited)
+### 1. Gemini API Key (optional)
+1. Go to [Google AI Studio](https://aistudio.google.com/apikey)
+2. Create an API key
+3. Free tier available with generous limits
+4. **Leave blank** to use placeholder text instead of AI
 
 ### 2. Craft Connection URL
 1. Open your Craft document
@@ -53,7 +52,7 @@ You'll need two API credentials:
 ### Running the App
 1. Open the app (online or local `index.html`)
 2. Click **Enter** on the splash screen
-3. Paste your OpenRouter key and Craft URL
+3. Paste your Craft URL (and optionally Gemini API key)
 4. Select an AI model and theme
 5. Click **Save & Continue**
 
@@ -72,13 +71,13 @@ You'll need two API credentials:
 | Refresh from Craft | Click ↻ Refresh in header |
 | Change settings | Click ⚙ in header |
 
-## AI Models (via OpenRouter)
+## AI Models (via Google Gemini)
 
-All free-tier models:
-- **DeepSeek V3.1** — Default, good balance
-- **Mistral 7B** — Fast responses
-- **Google Gemma 2 9B** — Google's open model
-- **Llama 3.2 3B** — Meta's compact model
+- **Gemini 2.5 Flash** — Default, free tier with generous limits
+- **Gemini 2.0 Flash** — Fast, reliable
+- **Gemini 2.5 Pro** — Most capable (paid)
+
+Or leave API key blank for **Placeholder mode** (lorem ipsum text).
 
 ## Technical Details
 
