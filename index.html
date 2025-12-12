@@ -390,6 +390,10 @@
             gap: 10px;
         }
 
+        .model-selector {
+            position: relative;
+        }
+
         .model-indicator {
             font-size: 11px;
             color: var(--amber-dim);
@@ -398,6 +402,61 @@
             border-radius: 3px;
             border: 1px solid var(--border);
             font-family: 'IBM Plex Mono', monospace;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .model-indicator:hover {
+            color: var(--amber);
+            border-color: var(--amber);
+            background: rgba(255, 176, 0, 0.2);
+        }
+
+        .model-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 5px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            min-width: 180px;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .model-dropdown.active {
+            display: block;
+        }
+
+        .model-option {
+            padding: 8px 12px;
+            font-size: 12px;
+            color: var(--amber-dim);
+            cursor: pointer;
+            font-family: 'IBM Plex Mono', monospace;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .model-option:last-child {
+            border-bottom: none;
+        }
+
+        .model-option:hover {
+            background: rgba(255, 176, 0, 0.1);
+            color: var(--amber);
+        }
+
+        .model-option.selected {
+            color: var(--amber);
+            background: rgba(255, 176, 0, 0.15);
+        }
+
+        .model-option .model-tag {
+            font-size: 9px;
+            opacity: 0.6;
+            margin-left: 6px;
         }
 
         .settings-btn {
@@ -850,7 +909,31 @@
             0%, 50% { opacity: 1; }
             51%, 100% { opacity: 0; }
         }
-        
+
+        .streaming-cursor {
+            animation: cursor-blink 0.8s infinite;
+            color: var(--amber);
+        }
+
+        .sync-indicator {
+            padding: 0.75rem 1rem;
+            margin: 1rem 0;
+            color: var(--amber-dim);
+            font-style: italic;
+            opacity: 0.8;
+        }
+
+        .sync-indicator::before {
+            content: '';
+            display: inline-block;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
         /* Scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
@@ -1032,9 +1115,9 @@
             <div class="form-group">
                 <label>AI Model</label>
                 <select id="ai-model">
-                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (Free tier)</option>
-                    <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                    <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                    <option value="">Placeholder (No API)</option>
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (Free)</option>
+                    <option value="gemini-3-pro-preview">Gemini 3 Pro (Free)</option>
                 </select>
             </div>
             <div class="form-group toggle-group">
@@ -1066,7 +1149,14 @@
                 <span class="header-title">CRAFT YOUR OWN ADVENTURE</span>
             </div>
             <div class="header-right">
-                <span class="model-indicator" id="model-indicator" title="Current AI Model">AI: DeepSeek</span>
+                <div class="model-selector">
+                    <span class="model-indicator" id="model-indicator" title="Click to change model">AI: DeepSeek</span>
+                    <div class="model-dropdown" id="model-dropdown">
+                        <div class="model-option" data-model="">Placeholder<span class="model-tag">offline</span></div>
+                        <div class="model-option" data-model="gemini-2.5-flash">Gemini 2.5 Flash<span class="model-tag">free</span></div>
+                        <div class="model-option" data-model="gemini-3-pro-preview">Gemini 3 Pro<span class="model-tag">free</span></div>
+                    </div>
+                </div>
                 <button class="header-btn" id="back-btn" disabled title="Go back">← Back</button>
                 <button class="header-btn" id="refresh-btn" title="Reload from Craft">↻ Refresh</button>
                 <button class="settings-btn" id="open-settings" title="Settings">⚙</button>
@@ -1139,9 +1229,47 @@
 
         // Model display names
         const modelNames = {
+            '': 'Placeholder',
             'gemini-2.5-flash': 'Gemini 2.5 Flash',
-            'gemini-2.0-flash': 'Gemini 2.0 Flash',
-            'gemini-2.5-pro': 'Gemini 2.5 Pro'
+            'gemini-3-pro-preview': 'Gemini 3 Pro'
+        };
+
+        // ===== AI PROMPTS (Single Source of Truth) =====
+        const PROMPTS = {
+            narrative: {
+                system: `You are an interactive fiction narrator. Write punchy second-person narrative.
+
+RULES:
+- Write 1-2 paragraphs focused on ACTION - what happens, what changes
+- Keep it moving - no lengthy descriptions, get to the point
+- End on a moment of tension or discovery
+- Do NOT include options/choices - just narrative
+- Never break character`,
+                withContext: (choice, context) => `STORY SO FAR:
+${context}
+
+---
+
+The player now chose: "${choice}"
+
+What happens next? 1-2 punchy paragraphs, focus on action.`,
+                noContext: (choice) => `The player chose: "${choice}"
+
+Begin this adventure with 1-2 punchy paragraphs. Focus on action.`,
+                regenerate: (choice, guidance) => guidance
+                    ? `The player chose: "${choice}"\n\nRewrite with this direction: "${guidance}"\n\n1-2 punchy paragraphs, focus on action.`
+                    : `The player chose: "${choice}"\n\nFresh take - 1-2 punchy paragraphs, different direction, focus on action.`
+            },
+            options: {
+                system: `You suggest possible actions for an interactive fiction game. Return ONLY a JSON array of exactly 2 short action phrases. No other text.
+
+Example output:
+["Search the room", "Open the door"]`,
+                user: (narrative) => `Based on this story:
+${narrative}
+
+Suggest 2 possible actions the player could take next. Return ONLY a JSON array.`
+            }
         };
 
         // ===== DOM ELEMENTS =====
@@ -1174,6 +1302,10 @@
                 populateSettingsForm();
                 settingsModal.classList.add('active');
             });
+
+            // Model dropdown
+            setupModelDropdown();
+            updateModelIndicator();
 
             // Back button
             $('back-btn').addEventListener('click', goBack);
@@ -1216,14 +1348,62 @@
 
         function updateModelIndicator() {
             const indicator = $('model-indicator');
-            if (state.geminiKey) {
+            const dropdown = $('model-dropdown');
+
+            // Update indicator text
+            if (state.geminiKey && state.aiModel) {
                 const displayName = modelNames[state.aiModel] || 'Gemini';
                 indicator.textContent = `AI: ${displayName}`;
-                indicator.title = state.aiModel;
             } else {
-                indicator.textContent = 'Mode: Placeholder';
-                indicator.title = 'No API key - using placeholder text';
+                indicator.textContent = 'AI: Placeholder';
             }
+
+            // Update dropdown selection
+            dropdown.querySelectorAll('.model-option').forEach(opt => {
+                opt.classList.toggle('selected', opt.dataset.model === state.aiModel);
+            });
+        }
+
+        // Model dropdown handlers
+        function setupModelDropdown() {
+            const indicator = $('model-indicator');
+            const dropdown = $('model-dropdown');
+
+            // Toggle dropdown on click
+            indicator.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdown.classList.toggle('active');
+            });
+
+            // Handle option selection
+            dropdown.querySelectorAll('.model-option').forEach(opt => {
+                opt.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const model = opt.dataset.model;
+
+                    // Check if API key required
+                    if (model && !state.geminiKey) {
+                        alert('Please add your Gemini API key in Settings first.');
+                        dropdown.classList.remove('active');
+                        return;
+                    }
+
+                    // Update state and save
+                    state.aiModel = model;
+                    localStorage.setItem('cyoa_ai_model', model);
+
+                    // Sync with settings dropdown
+                    $('ai-model').value = model;
+
+                    updateModelIndicator();
+                    dropdown.classList.remove('active');
+                });
+            });
+
+            // Close on click outside
+            document.addEventListener('click', () => {
+                dropdown.classList.remove('active');
+            });
         }
 
         function saveSettings() {
@@ -1437,17 +1617,19 @@
 
         // ===== STEP 0: LOAD PAGE (Central function - everything funnels here) =====
         async function loadPage(pageId) {
-            state.currentBranchId = pageId;
-            // Remember current location for page refresh
-            localStorage.setItem('cyoa_current_page', pageId);
             state.isGenerating = true;
 
             const node = findNode(state.adventureTree, pageId);
+
             if (!node) {
                 console.error('Node not found:', pageId);
                 state.isGenerating = false;
                 return;
             }
+
+            // Update current branch to actual node ID (might differ from original pageId)
+            state.currentBranchId = node.id;
+            localStorage.setItem('cyoa_current_page', node.id);
 
             // Check if page has content
             const hasContent = node.content && node.content.trim().length > 0;
@@ -1468,40 +1650,61 @@
                         narrative = `Welcome, Adventurer. Your story awaits. Pick a path below to begin, or rewrite these options to craft something uniquely yours. Every choice branches into new possibilities, all preserved in your Craft document as a living record of your tale.`;
                         options = [
                             "Into the Dragon's Lair",
-                            "The Lost Temple Adventure",
-                            "The Space Odyssey"
+                            "The Lost Temple Adventure"
                         ];
                     } else {
-                        // Normal empty page: generate via AI
-                        narrative = await generateNarrative(node.title);
+                        // Normal empty page: generate via AI with story context
+                        const path = getPathToNode(state.adventureTree, pageId);
+                        const storyContext = buildStoryContext(path);
+
+                        // Show title immediately, then stream narrative
+                        storyContent.innerHTML = `
+                            <div class="story-segment user-input">${escapeHtml(node.title)}</div>
+                            <div class="story-segment narration streaming" data-page-id="${node.id}">
+                                <div class="narrative-content"><span class="streaming-cursor">▌</span></div>
+                            </div>`;
+                        scrollToBottom();
+
+                        // Stream narrative with live updates
+                        const narrativeContent = storyContent.querySelector('.narrative-content');
+                        narrative = await generateNarrative(node.title, storyContext, (partialText) => {
+                            const paragraphs = partialText.split('\n\n').filter(p => p.trim());
+                            const html = paragraphs.map(p => `<p>${parseMarkdown(p.trim())}</p>`).join('');
+                            narrativeContent.innerHTML = html + '<span class="streaming-cursor">▌</span>';
+                            scrollToBottom();
+                        });
+
+                        // Remove cursor after streaming complete
+                        narrativeContent.innerHTML = narrativeContent.innerHTML.replace(/<span class="streaming-cursor">▌<\/span>/g, '');
+
                         options = await generateOptions(narrative);
                     }
 
-                    // Update local tree immediately (optimistic UI)
+                    // Update local tree
                     node.content = narrative;
 
-                    // Add children to local tree with temp IDs
-                    for (const optionTitle of options) {
-                        const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-                        node.children.push({
-                            id: tempId,
-                            title: optionTitle,
-                            content: '',
-                            children: []
-                        });
+                    // Show syncing indicator
+                    const syncIndicator = document.createElement('div');
+                    syncIndicator.className = 'sync-indicator';
+                    syncIndicator.innerHTML = '⟳ Syncing with Craft...';
+                    storyContent.appendChild(syncIndicator);
+                    scrollToBottom();
+
+                    // Sync to Craft FIRST (wait for real IDs before displaying)
+                    try {
+                        await syncPageToCraft(pageId, narrative, options);
+                    } catch (err) {
+                        console.error('Craft sync failed:', err);
                     }
 
-                    // Display immediately - don't wait for Craft
+                    // Remove sync indicator
+                    syncIndicator.remove();
+
+                    // Now display with real Craft IDs
                     displayPage(node);
                     updateBackButton();
                     state.isGenerating = false;
-
-                    // Sync to Craft in background (fire and forget)
-                    syncPageToCraft(pageId, narrative, options).catch(err => {
-                        console.error('Background Craft sync failed:', err);
-                    });
-
-                    return; // Already displayed, exit early
+                    return;
 
                 } catch (error) {
                     console.error('Generation error:', error);
@@ -1596,45 +1799,64 @@
             }
         }
 
-        // Background sync to Craft (optimistic UI - display first, sync later)
+        // Sync page to Craft - waits for completion before returning
         async function syncPageToCraft(pageId, narrative, options) {
             const node = findNode(state.adventureTree, pageId);
             if (!node) return;
 
             // 1. Write narrative to Craft
-            await writeToCraft(narrative);
+            await craftRequest('blocks', 'POST', {
+                markdown: narrative,
+                position: {
+                    position: 'end',
+                    pageId: pageId
+                }
+            });
+            console.log('Wrote narrative to Craft page:', pageId);
 
-            // 2. Create child pages in Craft and update local IDs
-            for (let i = 0; i < options.length; i++) {
-                const optionTitle = options[i];
-                try {
-                    const response = await craftRequest('blocks', 'POST', {
-                        markdown: `<page>${optionTitle}</page>`,
-                        position: {
-                            position: 'end',
-                            pageId: pageId
-                        }
-                    });
-
-                    const newPageId = response.items?.[0]?.id;
-                    if (newPageId && node.children[i] && node.children[i].id.startsWith('temp-')) {
-                        // Update temp ID to real Craft ID
-                        node.children[i].id = newPageId;
+            // 2. Create child pages in Craft and add to local tree with real IDs
+            node.children = []; // Clear any existing children
+            for (const optionTitle of options) {
+                const response = await craftRequest('blocks', 'POST', {
+                    markdown: `<page>${optionTitle}</page>`,
+                    position: {
+                        position: 'end',
+                        pageId: pageId
                     }
-                } catch (err) {
-                    console.error('Failed to create option in Craft:', optionTitle, err);
+                });
+
+                const newPageId = response.items?.[0]?.id;
+                if (newPageId) {
+                    node.children.push({
+                        id: newPageId,
+                        title: optionTitle,
+                        content: '',
+                        children: []
+                    });
                 }
             }
 
-            // Re-render if still on this page (so onclick handlers get real IDs)
-            if (state.currentBranchId === pageId) {
-                displayPage(node);
-            }
-
-            console.log('Background Craft sync complete for:', pageId);
+            console.log('Craft sync complete for:', pageId);
         }
 
         // ===== GEMINI API =====
+        function buildGeminiConfig() {
+            const generationConfig = { temperature: 0.9, maxOutputTokens: 1024 };
+            const model = state.aiModel || 'gemini-2.5-flash';
+
+            // Disable/minimize thinking for speed
+            if (model.startsWith('gemini-3')) {
+                // Gemini 3 uses thinkingLevel
+                generationConfig.thinkingConfig = { thinkingLevel: 'low' };
+            } else if (model.startsWith('gemini-2.5')) {
+                // Gemini 2.5 uses thinkingBudget - 0 disables thinking
+                generationConfig.thinkingConfig = { thinkingBudget: 0 };
+            }
+
+            return generationConfig;
+        }
+
+        // Non-streaming call (for options JSON parsing)
         async function callGemini(systemPrompt, userPrompt) {
             const model = state.aiModel || 'gemini-2.5-flash';
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${state.geminiKey}`;
@@ -1645,7 +1867,7 @@
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: userPrompt }] }],
                     systemInstruction: { parts: [{ text: systemPrompt }] },
-                    generationConfig: { temperature: 0.9, maxOutputTokens: 1024 }
+                    generationConfig: buildGeminiConfig()
                 })
             });
 
@@ -1658,57 +1880,100 @@
             return data.candidates[0].content.parts[0].text;
         }
 
-        // ===== AI FUNCTIONS =====
-        async function generateNarrative(choice) {
-            // Placeholder mode - no API key
-            if (!state.geminiKey) {
-                await new Promise(r => setTimeout(r, 500));
-                return `You chose: "${choice}"
+        // Streaming call (for narrative - shows text as it arrives)
+        async function callGeminiStream(systemPrompt, userPrompt, onChunk) {
+            const model = state.aiModel || 'gemini-2.5-flash';
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${state.geminiKey}`;
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: userPrompt }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    generationConfig: buildGeminiConfig()
+                })
+            });
 
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.`;
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Gemini API error ${response.status}: ${errorText}`);
             }
 
-            // Real AI generation
-            const systemPrompt = `You are an interactive fiction narrator. Write vivid, immersive second-person narrative ("You see...", "You feel...").
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullText = '';
 
-RULES:
-- Write 2-3 paragraphs continuing the story based on the player's choice
-- Be descriptive and engaging
-- Do NOT include options or choices - just the narrative
-- Never break character or mention game mechanics`;
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
 
-            const userPrompt = `The player chose: "${choice}"
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
 
-Continue the story based on this choice. Write 2-3 paragraphs of narrative.`;
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const json = JSON.parse(line.slice(6));
+                            const text = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                            if (text) {
+                                fullText += text;
+                                if (onChunk) onChunk(fullText);
+                            }
+                        } catch (e) {
+                            // Skip malformed JSON chunks
+                        }
+                    }
+                }
+            }
 
+            return fullText;
+        }
+
+        // ===== AI FUNCTIONS =====
+        async function generateNarrative(choice, storyContext = null, onChunk = null) {
+            // Placeholder mode - no API key or placeholder model selected
+            if (!state.geminiKey || !state.aiModel) {
+                const placeholder = `You chose: "${choice}"
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore.`;
+                // Simulate streaming for placeholder
+                if (onChunk) {
+                    for (let i = 0; i < placeholder.length; i += 10) {
+                        await new Promise(r => setTimeout(r, 20));
+                        onChunk(placeholder.slice(0, i + 10));
+                    }
+                }
+                return placeholder;
+            }
+
+            // Real AI generation using PROMPTS config
+            const systemPrompt = PROMPTS.narrative.system;
+            const userPrompt = storyContext
+                ? PROMPTS.narrative.withContext(choice, storyContext)
+                : PROMPTS.narrative.noContext(choice);
+
+            // Use streaming if callback provided
+            if (onChunk) {
+                return await callGeminiStream(systemPrompt, userPrompt, onChunk);
+            }
             return await callGemini(systemPrompt, userPrompt);
         }
 
         async function generateOptions(narrative) {
-            // Placeholder mode - no API key
-            if (!state.geminiKey) {
+            // Placeholder mode - no API key or placeholder model selected
+            if (!state.geminiKey || !state.aiModel) {
                 await new Promise(r => setTimeout(r, 200));
                 return [
                     "Option One",
-                    "Option Two",
-                    "Option Three"
+                    "Option Two"
                 ];
             }
 
-            // Real AI generation
-            const systemPrompt = `You suggest possible actions for an interactive fiction game. Return ONLY a JSON array of exactly 3 short action phrases. No other text.
-
-Example output:
-["Search the room", "Open the door", "Call for help"]`;
-
-            const userPrompt = `Based on this story:
-${narrative}
-
-Suggest 3 possible actions the player could take next. Return ONLY a JSON array.`;
-
-            const response = await callGemini(systemPrompt, userPrompt);
+            // Real AI generation using PROMPTS config
+            const response = await callGemini(PROMPTS.options.system, PROMPTS.options.user(narrative));
 
             // Parse JSON from response (handle potential markdown code blocks)
             let jsonStr = response.trim();
@@ -1718,8 +1983,8 @@ Suggest 3 possible actions the player could take next. Return ONLY a JSON array.
 
             try {
                 const options = JSON.parse(jsonStr);
-                if (Array.isArray(options) && options.length >= 3) {
-                    return options.slice(0, 3);
+                if (Array.isArray(options) && options.length >= 2) {
+                    return options.slice(0, 2);
                 }
             } catch (e) {
                 console.error('Failed to parse options JSON:', e, jsonStr);
@@ -1728,8 +1993,7 @@ Suggest 3 possible actions the player could take next. Return ONLY a JSON array.
             // Fallback if parsing fails
             return [
                 "Option One",
-                "Option Two",
-                "Option Three"
+                "Option Two"
             ];
         }
 
@@ -1741,6 +2005,35 @@ Suggest 3 possible actions the player could take next. Return ONLY a JSON array.
                 if (found) return found;
             }
             return null;
+        }
+
+        // Build path from root to target node (for story context)
+        function getPathToNode(tree, targetId, path = []) {
+            if (!tree) return null;
+
+            const currentStep = { title: tree.title, content: tree.content };
+            const newPath = [...path, currentStep];
+
+            if (tree.id === targetId) return newPath;
+
+            for (const child of tree.children || []) {
+                const found = getPathToNode(child, targetId, newPath);
+                if (found) return found;
+            }
+            return null;
+        }
+
+        // Format path as story context (full history - 1M token context allows it)
+        function buildStoryContext(path) {
+            if (!path || path.length <= 1) return null; // No context for root
+
+            // Skip root, include full path
+            const relevantPath = path.slice(1);
+
+            return relevantPath
+                .filter(step => step.content) // Only include explored pages
+                .map((step, i) => `[Choice ${i + 1}: "${step.title}"]\n${step.content}`)
+                .join('\n\n---\n\n');
         }
 
         // ===== GLOBAL FUNCTIONS =====
@@ -1987,33 +2280,69 @@ Suggest 3 possible actions the player could take next. Return ONLY a JSON array.
             }
 
             try {
-                // Generate new narrative with optional prompt
-                const newContent = await regenerateNarrative(node.title, node.content, prompt);
+                // Generate new narrative with optional prompt and story context
+                const path = getPathToNode(state.adventureTree, pageId);
+                const storyContext = buildStoryContext(path);
+                const newContent = await regenerateNarrative(node.title, node.content, prompt, storyContext);
 
                 // Update local tree
                 node.content = newContent;
 
-                // Re-render the CURRENT page
-                const currentNode = findNode(state.adventureTree, state.currentBranchId);
-                if (currentNode) {
-                    displayPage(currentNode);
+                // Regenerate empty options only (keep explored ones)
+                const children = node.children || [];
+                const emptyChildren = children.filter(c => !c.content || !c.content.trim());
+                const exploredChildren = children.filter(c => c.content && c.content.trim());
+
+                let newOptions = [];
+                if (emptyChildren.length > 0 || children.length === 0) {
+                    newOptions = await generateOptions(newContent);
                 }
 
-                // Update Craft in background
-                console.log('Saving regenerated narrative to Craft for page:', pageId);
-                updateNarrativeInCraft(pageId, newContent).then(() => {
-                    console.log('Successfully synced regenerated narrative to Craft');
-                }).catch(error => {
-                    console.error('Failed to sync regenerated narrative with Craft:', error);
-                });
+                // Show syncing indicator
+                const syncIndicator = document.createElement('div');
+                syncIndicator.className = 'sync-indicator';
+                syncIndicator.innerHTML = '⟳ Syncing with Craft...';
+                storyContent.appendChild(syncIndicator);
+
+                // Sync to Craft - await completion
+                try {
+                    // Update narrative
+                    await updateNarrativeInCraft(pageId, newContent);
+
+                    // Handle options if we need to regenerate them
+                    if (newOptions.length > 0) {
+                        // Delete empty children from Craft
+                        for (const child of emptyChildren) {
+                            await deletePageFromCraft(child.id);
+                        }
+
+                        // Create new options and get real IDs
+                        node.children = [...exploredChildren];
+                        for (const optionTitle of newOptions) {
+                            const newPageId = await createOptionInCraft(pageId, optionTitle);
+                            if (newPageId) {
+                                node.children.push({
+                                    id: newPageId,
+                                    title: optionTitle,
+                                    content: '',
+                                    children: []
+                                });
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('Craft sync failed:', err);
+                }
+
+                syncIndicator.remove();
+
+                // Re-render with real IDs
+                displayPage(node);
 
             } catch (error) {
                 console.error('Regeneration error:', error);
-                // Restore original content on error
-                const currentNode = findNode(state.adventureTree, state.currentBranchId);
-                if (currentNode) {
-                    displayPage(currentNode);
-                }
+                // Re-render current state on error
+                displayPage(node);
             }
 
             state.isGenerating = false;
@@ -2024,38 +2353,23 @@ Suggest 3 possible actions the player could take next. Return ONLY a JSON array.
         }
 
         // Regenerate narrative with optional guidance
-        async function regenerateNarrative(choice, currentContent, guidance) {
-            // Placeholder mode - no API key
-            if (!state.geminiKey) {
+        async function regenerateNarrative(choice, currentContent, guidance, storyContext = null) {
+            // Placeholder mode - no API key or placeholder model selected
+            if (!state.geminiKey || !state.aiModel) {
                 await new Promise(r => setTimeout(r, 800));
                 if (guidance) {
-                    return `[Regenerated with guidance: "${guidance}"]\n\nYou chose: "${choice}"\n\nThe story continues with your requested changes. Lorem ipsum dolor sit amet, consectetur adipiscing elit. This narrative has been adjusted based on your feedback.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.`;
+                    return `[Regenerated with guidance: "${guidance}"]\n\nYou chose: "${choice}"\n\nThe story continues with your requested changes. Lorem ipsum dolor sit amet.`;
                 } else {
-                    return `[Regenerated freely]\n\nYou chose: "${choice}"\n\nA fresh take on the narrative unfolds. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.\n\nNemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.`;
+                    return `[Regenerated freely]\n\nYou chose: "${choice}"\n\nA fresh take unfolds. Sed ut perspiciatis unde omnis iste natus error sit.`;
                 }
             }
 
-            // Real AI regeneration
-            const systemPrompt = `You are an interactive fiction narrator. Write vivid, immersive second-person narrative ("You see...", "You feel...").
+            // Real AI regeneration using PROMPTS config
+            let userPrompt = storyContext
+                ? `STORY SO FAR:\n${storyContext}\n\n---\n\n` + PROMPTS.narrative.regenerate(choice, guidance)
+                : PROMPTS.narrative.regenerate(choice, guidance);
 
-RULES:
-- Write 2-3 paragraphs continuing the story based on the player's choice
-- Be descriptive and engaging
-- Do NOT include options or choices - just the narrative
-- Never break character or mention game mechanics`;
-
-            let userPrompt = `The player chose: "${choice}"
-
-`;
-            if (guidance) {
-                userPrompt += `The player wants this change to the narrative: "${guidance}"
-
-Please write a new version of the narrative incorporating this feedback.`;
-            } else {
-                userPrompt += `Please write a fresh, different version of the narrative for this choice. Be creative and take the story in a new direction.`;
-            }
-
-            return await callGemini(systemPrompt, userPrompt);
+            return await callGemini(PROMPTS.narrative.system, userPrompt);
         }
 
         // Update narrative content in Craft
@@ -2066,25 +2380,20 @@ Please write a new version of the narrative incorporating this feedback.`;
 
             // Fetch current page structure
             const response = await craftRequest(`blocks?id=${pageId}&maxDepth=1`);
-            console.log('Fetched page structure:', response);
 
             // Only touch text blocks - NEVER delete page blocks (they have nested content!)
             const textBlocks = (response.content || []).filter(c => c.type === 'text');
-            console.log('Found text blocks:', textBlocks.length);
 
             // Split new content into paragraphs (Craft stores each as separate block)
             const paragraphs = newContent.split('\n\n').filter(p => p.trim());
-            console.log('New content has', paragraphs.length, 'paragraphs');
 
             // Step 1: Delete existing text blocks only
             if (textBlocks.length > 0) {
-                console.log('Deleting', textBlocks.length, 'text blocks...');
                 const blockIds = textBlocks.map(b => b.id);
                 await craftRequest('blocks', 'DELETE', { blockIds });
             }
 
             // Step 2: Create new text blocks at START of page (before options)
-            console.log('Creating', paragraphs.length, 'text blocks at start...');
             for (let i = paragraphs.length - 1; i >= 0; i--) {
                 const paragraph = paragraphs[i].trim();
                 if (!paragraph) continue;
@@ -2105,7 +2414,7 @@ Please write a new version of the narrative incorporating this feedback.`;
             const parentNode = findNode(state.adventureTree, parentId);
             if (!parentNode) return;
 
-            // Create temporary placeholder in local tree
+            // Create temporary placeholder in local tree (temp ID for editing UI only)
             const tempId = 'temp-' + Date.now();
             const newNode = {
                 id: tempId,
@@ -2175,37 +2484,30 @@ Please write a new version of the narrative incorporating this feedback.`;
             const parentNode = findNode(state.adventureTree, parentId);
             if (!parentNode) return;
 
-            // Update local tree immediately with title
+            // Update temp node with title
             const tempNode = parentNode.children.find(c => c.id === tempId);
             if (tempNode) {
                 tempNode.title = title;
             }
 
-            // Refresh display instantly
-            displayPage(parentNode);
+            // Show sync indicator
+            const syncIndicator = document.createElement('div');
+            syncIndicator.className = 'sync-indicator';
+            syncIndicator.innerHTML = '⟳ Syncing with Craft...';
+            storyContent.appendChild(syncIndicator);
 
-            // Create in Craft in background (don't use createEmptyChildPage - it adds to tree)
+            // Create in Craft (await completion)
             try {
-                const response = await craftRequest('blocks', 'POST', {
-                    markdown: `<page>${title}</page>`,
-                    position: {
-                        position: 'end',
-                        pageId: parentId
-                    }
-                });
-
-                const newPageId = response.items?.[0]?.id;
+                const newPageId = await createOptionInCraft(parentId, title);
                 if (newPageId && tempNode) {
-                    // Update the temp ID to real ID
                     tempNode.id = newPageId;
-                    // Re-render if still on this page (so onclick handlers get real ID)
-                    if (state.currentBranchId === parentId) {
-                        displayPage(parentNode);
-                    }
                 }
             } catch (error) {
                 console.error('Failed to create option in Craft:', error);
             }
+
+            syncIndicator.remove();
+            displayPage(parentNode);
         }
 
         async function writeToCraft(content) {
@@ -2266,6 +2568,24 @@ Please write a new version of the narrative incorporating this feedback.`;
                 blockIds: [blockId]
             });
             return response;
+        }
+
+        // Delete a page from Craft
+        async function deletePageFromCraft(pageId) {
+            return deleteBlock(pageId);
+        }
+
+        // Create a new option (child page) in Craft
+        async function createOptionInCraft(parentId, title) {
+            const response = await craftRequest('blocks', 'POST', {
+                markdown: `<page>${title}</page>`,
+                position: {
+                    position: 'end',
+                    pageId: parentId
+                }
+            });
+
+            return response.items?.[0]?.id;
         }
 
         function showBranchNotification(title) {
