@@ -64,6 +64,7 @@ Narrative paragraph from AI...
 - OpenRouter streaming working
 - Craft API integration working
 - Story branching creates subpages in Craft Docs
+- Clicking a suggestion auto-creates a subpage branch for that path choice
 
 ## Known Issues Fixed
 - **ASCII art spacing**: Fixed inconsistent ASCII characters in splash screen
