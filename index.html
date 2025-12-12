@@ -1056,7 +1056,7 @@
 
             for (const line of lines) {
                 if (line.startsWith('> ')) {
-                    if (currentSegment.text.trim()) {
+                    if (currentSegment.text?.trim()) {
                         segments.push(currentSegment);
                     }
                     segments.push({ type: 'user-input', text: line.substring(2) });
@@ -1067,7 +1067,7 @@
                     const bulletContent = line.replace(/^[•\-]\s*/, '').trim();
                     if (bulletContent) {
                         if (!currentSegment.suggestions) {
-                            if (currentSegment.text.trim()) {
+                            if (currentSegment.text?.trim()) {
                                 segments.push(currentSegment);
                             }
                             currentSegment = { type: 'suggestions', suggestions: [] };
