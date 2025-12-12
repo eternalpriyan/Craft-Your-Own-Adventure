@@ -1686,9 +1686,9 @@ Continue the story based on this choice. Write 2-3 paragraphs of narrative.`;
             if (!state.geminiKey) {
                 await new Promise(r => setTimeout(r, 200));
                 return [
-                    "Explore the ancient ruins",
-                    "Follow the mysterious stranger",
-                    "Return to the village"
+                    "Option One",
+                    "Option Two",
+                    "Option Three"
                 ];
             }
 
@@ -1722,9 +1722,9 @@ Suggest 3 possible actions the player could take next. Return ONLY a JSON array.
 
             // Fallback if parsing fails
             return [
-                "Investigate further",
-                "Look for another way",
-                "Wait and observe"
+                "Option One",
+                "Option Two",
+                "Option Three"
             ];
         }
 
