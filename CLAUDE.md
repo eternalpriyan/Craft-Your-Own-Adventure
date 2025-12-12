@@ -64,7 +64,8 @@ Narrative paragraph from AI...
 - OpenRouter streaming working
 - Craft API integration working
 - Story branching creates subpages in Craft Docs
-- Clicking a suggestion auto-creates a subpage branch for that path choice
+- Every response creates a subpage under the current page (builds nested tree)
+- Suggestion format is hard-coded for consistency (extracts from various AI formats)
 
 ## Known Issues Fixed
 - **ASCII art spacing**: Fixed inconsistent ASCII characters in splash screen

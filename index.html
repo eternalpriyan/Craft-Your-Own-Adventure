@@ -1412,7 +1412,6 @@ FORMAT:
             scrollToBottom();
 
             let fullResponse = '';
-            let branchTitle = null;
 
             try {
                 const response = await callOpenRouter(input);
@@ -1423,33 +1422,25 @@ FORMAT:
                     scrollToBottom();
                 });
 
-                // Final render
-                loadingDiv.innerHTML = formatNarration(fullResponse);
+                // Remove any [BRANCH: ...] marker from response
+                fullResponse = fullResponse.replace(/\[BRANCH:\s*[^\]]+\]\s*/g, '');
 
-                // Check for branch marker
-                const branchMatch = fullResponse.match(/\[BRANCH:\s*([^\]]+)\]/);
-                if (branchMatch) {
-                    branchTitle = branchMatch[1].trim();
-                    fullResponse = fullResponse.replace(/\[BRANCH:\s*[^\]]+\]\s*/, '');
-                    loadingDiv.innerHTML = formatNarration(fullResponse);
-                }
+                // Final render with hard-coded suggestion format
+                loadingDiv.innerHTML = formatNarration(fullResponse);
 
                 // Add to context
                 state.conversationContext.push({ type: 'narration', text: fullResponse });
 
-                // Write to Craft
+                // Always create a subpage for each response
+                const branchTitle = input.length > 40 ? input.substring(0, 40) + '...' : input;
                 const craftContent = `> ${input}\n\n${fullResponse}`;
 
                 try {
-                    if (branchTitle) {
-                        console.log('Creating new branch:', branchTitle);
-                        await createBranch(branchTitle);
-                    }
-
+                    console.log('Creating subpage branch:', branchTitle);
+                    await createBranch(branchTitle);
                     await writeToCraft(craftContent);
                 } catch (craftError) {
                     console.error('Craft API error:', craftError);
-                    // Show error but don't remove the narrative - it's still valuable
                     const errorDiv = document.createElement('div');
                     errorDiv.className = 'error-message';
                     errorDiv.textContent = `Failed to save to Craft: ${craftError.message}. Your story continues but may not be saved.`;
@@ -1467,33 +1458,90 @@ FORMAT:
         }
 
         function formatNarration(text) {
-            // Convert markdown-style formatting
-            let html = escapeHtml(text);
-            
-            // Handle suggestions section
-            if (html.includes('**What will you do?**')) {
-                const parts = html.split('---');
-                if (parts.length > 1) {
-                    const narration = parts[0];
-                    const suggestionsText = parts.slice(1).join('---');
-                    
-                    const suggestions = suggestionsText.match(/•\s*([^\n•]+)/g) || [];
-                    const suggestionHtml = suggestions.map(s => {
-                        const text = s.replace(/^•\s*/, '').trim();
-                        return `<div class="suggestion-item" onclick="useSuggestion(\`${text.replace(/`/g, '\\`')}\`)">${text}</div>`;
-                    }).join('');
+            // Extract suggestions from AI response (various formats)
+            const { narrative, suggestions } = extractSuggestions(text);
 
-                    return `
-                        ${narration}
-                        <div class="story-suggestions">
-                            <h4>What will you do?</h4>
-                            ${suggestionHtml}
-                        </div>
-                    `;
+            let html = escapeHtml(narrative);
+
+            // Always render suggestions in consistent hard-coded format
+            if (suggestions.length > 0) {
+                const suggestionHtml = suggestions.map(s => {
+                    const escaped = s.replace(/`/g, '\\`').replace(/'/g, "\\'");
+                    return `<div class="suggestion-item" onclick="useSuggestion(\`${escaped}\`)">${escapeHtml(s)}</div>`;
+                }).join('');
+
+                return `
+                    ${html}
+                    <div class="story-suggestions">
+                        <h4>What will you do?</h4>
+                        ${suggestionHtml}
+                    </div>
+                `;
+            }
+
+            return html;
+        }
+
+        // Extract suggestions from AI response - handles various formats
+        function extractSuggestions(text) {
+            let narrative = text;
+            let suggestions = [];
+
+            // Remove [BRANCH: ...] markers
+            narrative = narrative.replace(/\[BRANCH:\s*[^\]]+\]\s*/g, '');
+
+            // Pattern 1: "---" separator followed by suggestions
+            if (narrative.includes('---')) {
+                const parts = narrative.split('---');
+                narrative = parts[0].trim();
+                const suggestionPart = parts.slice(1).join('---');
+
+                // Extract bullet points (•, -, *, or numbered)
+                const bulletMatches = suggestionPart.match(/(?:^|\n)\s*(?:[•\-\*]|\d+[\.\)])\s*(.+)/g);
+                if (bulletMatches) {
+                    suggestions = bulletMatches
+                        .map(s => s.replace(/(?:^|\n)\s*(?:[•\-\*]|\d+[\.\)])\s*/, '').trim())
+                        .filter(s => s.length > 0 && !s.toLowerCase().includes('what will you do'));
                 }
             }
-            
-            return html;
+
+            // Pattern 2: Look for bullet points at end without separator
+            if (suggestions.length === 0) {
+                const lines = narrative.split('\n');
+                const bulletLines = [];
+                let foundBullets = false;
+
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    const line = lines[i].trim();
+                    if (/^(?:[•\-\*]|\d+[\.\)])\s*.+/.test(line)) {
+                        bulletLines.unshift(line.replace(/^(?:[•\-\*]|\d+[\.\)])\s*/, '').trim());
+                        foundBullets = true;
+                    } else if (foundBullets && line.length > 0) {
+                        // Stop when we hit non-bullet content
+                        break;
+                    }
+                }
+
+                if (bulletLines.length >= 2) {
+                    suggestions = bulletLines.filter(s =>
+                        s.length > 0 && !s.toLowerCase().includes('what will you do')
+                    );
+                    // Remove suggestion lines from narrative
+                    const narrativeLines = lines.slice(0, lines.length - bulletLines.length - 1);
+                    narrative = narrativeLines.join('\n').trim();
+                }
+            }
+
+            // Clean up narrative - remove "What will you do?" headers
+            narrative = narrative
+                .replace(/\*\*What will you do\?\*\*/gi, '')
+                .replace(/What will you do\?/gi, '')
+                .trim();
+
+            // Limit to 3 suggestions
+            suggestions = suggestions.slice(0, 3);
+
+            return { narrative, suggestions };
         }
 
         // ===== UTILITIES =====
