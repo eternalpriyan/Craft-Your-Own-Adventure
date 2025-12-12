@@ -845,10 +845,6 @@
             transition: color 0.2s;
         }
 
-        .suggestion-item:hover {
-            color: var(--amber-bright);
-        }
-
         .suggestion-item .option-text {
             flex: 1;
         }
@@ -860,8 +856,15 @@
             transition: opacity 0.2s;
         }
 
-        .suggestion-item:hover .option-actions {
-            opacity: 1;
+        /* Only apply hover on devices that support it (not touch) */
+        @media (hover: hover) {
+            .suggestion-item:hover {
+                color: var(--amber-bright);
+            }
+
+            .suggestion-item:hover .option-actions {
+                opacity: 1;
+            }
         }
 
         .option-btn {
