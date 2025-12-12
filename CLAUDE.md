@@ -53,14 +53,20 @@ Narrative paragraph from AI...
 ```
 
 ## Files
-- `craft-cyoa.html` — single-file app (HTML + CSS + JS)
+- `index.html` — single-file app (HTML + CSS + JS)
 - Credentials stored in localStorage: `cyoa_gemini_key`, `cyoa_craft_token`, `cyoa_craft_doc_id`
 
 ## Current Status
 - UI complete (splash, settings, chat, tree panel)
 - Gemini streaming working
-- Craft API integration written but untested (CORS blocked in Claude artifact sandbox)
-- Needs testing with actual Craft API from local browser
+- Craft API integration working
+- Story branching creates subpages in Craft Docs
+
+## Known Issues Fixed
+- **ASCII art spacing**: Fixed inconsistent ASCII characters in splash screen
+- **ADVENTURE spelling**: Corrected and centered ASCII art text
+- **Story branching**: Fixed to properly create subpages in Craft Docs
+- **Craft doc loading**: Fixed "Cannot read properties of undefined (reading 'trim')" error when loading docs with mixed content segments (user inputs + suggestions). Added optional chaining to `parseContent()` at lines 1059 and 1070
 
 ## Style
 - Warm amber terminal: `#ffb000` on `#0a0a0f`
