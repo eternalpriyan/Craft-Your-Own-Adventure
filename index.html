@@ -189,7 +189,29 @@
         .form-group input::placeholder {
             color: var(--text-dim);
         }
-        
+
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 14px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--amber);
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .form-group select:focus {
+            border-color: var(--amber);
+        }
+
+        .form-group select option {
+            background: var(--bg-dark);
+            color: var(--amber);
+        }
+
         .modal-buttons {
             display: flex;
             gap: 15px;
@@ -289,7 +311,17 @@
             align-items: center;
             gap: 10px;
         }
-        
+
+        .model-indicator {
+            font-size: 11px;
+            color: var(--amber-dim);
+            background: rgba(255, 176, 0, 0.1);
+            padding: 4px 10px;
+            border-radius: 3px;
+            border: 1px solid var(--border);
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
         .settings-btn {
             background: none;
             border: none;
@@ -672,6 +704,15 @@
                 <label>Document ID (optional - uses first doc if empty)</label>
                 <input type="text" id="craft-doc-id" placeholder="Leave empty to auto-select">
             </div>
+            <div class="form-group">
+                <label>AI Model</label>
+                <select id="ai-model">
+                    <option value="nex-agi/deepseek-v3.1-nex-n1:free">DeepSeek V3.1 (Free)</option>
+                    <option value="mistralai/mistral-7b-instruct:free">Mistral 7B (Free)</option>
+                    <option value="google/gemma-2-9b-it:free">Google Gemma 2 9B (Free)</option>
+                    <option value="meta-llama/llama-3.2-3b-instruct:free">Llama 3.2 3B (Free)</option>
+                </select>
+            </div>
             <div class="modal-buttons">
                 <button class="btn btn-secondary" id="cancel-settings">Cancel</button>
                 <button class="btn btn-primary" id="save-settings">Save & Continue</button>
@@ -687,6 +728,7 @@
                 <span class="header-title">CRAFT YOUR OWN ADVENTURE</span>
             </div>
             <div class="header-right">
+                <span class="model-indicator" id="model-indicator" title="Current AI Model">AI: DeepSeek</span>
                 <span id="current-branch-name"></span>
                 <button class="settings-btn" id="open-settings" title="Settings">⚙</button>
             </div>
@@ -735,10 +777,19 @@
             openrouterKey: localStorage.getItem('cyoa_openrouter_key') || '',
             craftToken: localStorage.getItem('cyoa_craft_token') || '',
             craftDocId: localStorage.getItem('cyoa_craft_doc_id') || '',
+            aiModel: localStorage.getItem('cyoa_ai_model') || 'nex-agi/deepseek-v3.1-nex-n1:free',
             currentBranchId: null,
             adventureTree: null,
             conversationContext: [],
             isGenerating: false
+        };
+
+        // Model display names
+        const modelNames = {
+            'nex-agi/deepseek-v3.1-nex-n1:free': 'DeepSeek',
+            'mistralai/mistral-7b-instruct:free': 'Mistral',
+            'google/gemma-2-9b-it:free': 'Gemma',
+            'meta-llama/llama-3.2-3b-instruct:free': 'Llama'
         };
 
         // ===== DOM ELEMENTS =====
@@ -813,12 +864,21 @@
             $('openrouter-key').value = state.openrouterKey;
             $('craft-token').value = state.craftToken;
             $('craft-doc-id').value = state.craftDocId;
+            $('ai-model').value = state.aiModel;
+        }
+
+        function updateModelIndicator() {
+            const indicator = $('model-indicator');
+            const displayName = modelNames[state.aiModel] || 'AI';
+            indicator.textContent = `AI: ${displayName}`;
+            indicator.title = state.aiModel;
         }
 
         function saveSettings() {
             const openrouterKey = $('openrouter-key').value.trim();
             const craftToken = $('craft-token').value.trim();
             const craftDocId = $('craft-doc-id').value.trim();
+            const aiModel = $('ai-model').value;
 
             if (!openrouterKey || !craftToken) {
                 alert('Please enter your OpenRouter API key and Craft API URL');
@@ -829,17 +889,21 @@
             state.openrouterKey = openrouterKey;
             state.craftToken = craftToken.replace(/\/$/, '');
             state.craftDocId = craftDocId; // Can be empty
+            state.aiModel = aiModel;
 
             localStorage.setItem('cyoa_openrouter_key', openrouterKey);
             localStorage.setItem('cyoa_craft_token', state.craftToken);
             localStorage.setItem('cyoa_craft_doc_id', craftDocId);
+            localStorage.setItem('cyoa_ai_model', aiModel);
 
+            updateModelIndicator();
             settingsModal.classList.remove('active');
             showApp();
         }
 
         async function showApp() {
             app.classList.add('active');
+            updateModelIndicator();
             await loadAdventureTree();
         }
 
@@ -1327,7 +1391,7 @@ FORMAT:
                         'X-Title': 'Choose Your Own Adventure'
                     },
                     body: JSON.stringify({
-                        model: 'google/gemma-2-9b-it:free',
+                        model: state.aiModel,
                         messages: messages,
                         stream: true,
                         temperature: 0.9,
