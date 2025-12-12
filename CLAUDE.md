@@ -6,6 +6,8 @@ HTML app: AI narrator (via OpenRouter) + Craft doc as persistent save file. Play
 ## Craft API (Multi-Document Block-Based)
 Base: `https://connect.craft.do/links/{LINK_ID}/api/v1`
 
+> **Full API Reference:** See [CRAFT_API.md](./CRAFT_API.md) for complete endpoint documentation, parameters, and examples.
+
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/documents` | GET | List docs `{items: [{id, title, isDeleted}]}` |
@@ -62,6 +64,7 @@ Narrative paragraph from AI...
 - OpenRouter streaming working
 - Craft API integration working
 - Story branching creates subpages in Craft Docs
+- Clicking a suggestion auto-creates a subpage branch for that path choice
 
 ## Known Issues Fixed
 - **ASCII art spacing**: Fixed inconsistent ASCII characters in splash screen

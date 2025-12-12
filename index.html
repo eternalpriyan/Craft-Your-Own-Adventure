@@ -1108,8 +1108,77 @@
         }
 
         // Global function for suggestion clicks
-        window.useSuggestion = function(text) {
-            userInput.value = text;
+        // Clicking a suggestion auto-creates a branch (subpage) for that path
+        window.useSuggestion = async function(text) {
+            if (state.isGenerating) return;
+
+            state.isGenerating = true;
+            sendBtn.disabled = true;
+            userInput.value = '';
+
+            // Remove welcome message if present
+            const welcome = storyContent.querySelector('.welcome-message');
+            if (welcome) welcome.remove();
+
+            // Add user input to display
+            const userSegment = document.createElement('div');
+            userSegment.className = 'story-segment user-input';
+            userSegment.textContent = text;
+            storyContent.appendChild(userSegment);
+
+            // Add to context
+            state.conversationContext.push({ type: 'user-input', text: text });
+
+            // Create loading indicator
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'story-segment narration loading';
+            storyContent.appendChild(loadingDiv);
+            scrollToBottom();
+
+            let fullResponse = '';
+
+            try {
+                const response = await callOpenRouter(text);
+                loadingDiv.classList.remove('loading');
+
+                fullResponse = await processOpenRouterStream(response, (streamText) => {
+                    loadingDiv.innerHTML = formatNarration(streamText);
+                    scrollToBottom();
+                });
+
+                // Remove any [BRANCH: ...] marker from response since we're auto-branching
+                fullResponse = fullResponse.replace(/\[BRANCH:\s*[^\]]+\]\s*/g, '');
+                loadingDiv.innerHTML = formatNarration(fullResponse);
+
+                // Add to context
+                state.conversationContext.push({ type: 'narration', text: fullResponse });
+
+                // Auto-create branch for this path choice
+                // Use truncated suggestion text as branch title
+                const branchTitle = text.length > 40 ? text.substring(0, 40) + '...' : text;
+
+                try {
+                    console.log('Auto-creating branch for suggestion:', branchTitle);
+                    await createBranch(branchTitle);
+
+                    // Write content to the new branch
+                    const craftContent = `> ${text}\n\n${fullResponse}`;
+                    await writeToCraft(craftContent);
+                } catch (craftError) {
+                    console.error('Craft API error:', craftError);
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'error-message';
+                    errorDiv.textContent = `Failed to save to Craft: ${craftError.message}. Your story continues but may not be saved.`;
+                    storyContent.appendChild(errorDiv);
+                }
+
+            } catch (error) {
+                console.error('Generation error:', error);
+                loadingDiv.innerHTML = `<div class="error-message">Error: ${error.message}. Please try again.</div>`;
+            }
+
+            state.isGenerating = false;
+            sendBtn.disabled = false;
             userInput.focus();
         };
 
