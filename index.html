@@ -1107,29 +1107,40 @@
         async function createBranch(title) {
             try {
                 // Create a new page block as a child of the current branch
+                // Must use the blocks array format with type: 'page' to create a subpage
                 const response = await craftRequest('blocks', 'POST', {
-                    markdown: `<page>${title}</page>`,
+                    blocks: [
+                        {
+                            type: 'page',
+                            markdown: title
+                        }
+                    ],
                     position: {
                         position: 'end',
                         pageId: state.currentBranchId
                     }
                 });
-                
+
+                console.log('Create branch response:', response);
+
                 const newBlockId = response.items?.[0]?.id;
                 if (!newBlockId) {
+                    console.error('Unexpected response format:', response);
                     throw new Error('No block ID returned from Craft');
                 }
                 
-                // Update local tree
+                // Update local tree with the new branch
                 const parentNode = findNode(state.adventureTree, state.currentBranchId);
                 if (parentNode) {
-                    parentNode.children.push({
+                    const newNode = {
                         id: newBlockId,
                         title: title,
                         markdown: `<page>${title}</page>`,
                         children: [],
                         blocks: []
-                    });
+                    };
+                    parentNode.children.push(newNode);
+                    console.log('Added new branch node:', newNode.id, 'to parent:', parentNode.id);
                 }
                 
                 state.currentBranchId = newBlockId;
@@ -1147,25 +1158,36 @@
 
         async function writeToCraft(content) {
             try {
+                console.log('Writing to Craft, branch:', state.currentBranchId);
+
                 // Insert a new text block with the content
-                await craftRequest('blocks', 'POST', {
-                    markdown: content,
+                const response = await craftRequest('blocks', 'POST', {
+                    blocks: [
+                        {
+                            type: 'text',
+                            markdown: content
+                        }
+                    ],
                     position: {
                         position: 'end',
                         pageId: state.currentBranchId
                     }
                 });
 
+                console.log('Write to Craft response:', response);
+
                 // Update local tree
                 const node = findNode(state.adventureTree, state.currentBranchId);
                 if (node) {
                     node.blocks.push({
                         type: 'text',
-                        markdown: content
+                        markdown: content,
+                        id: response.items?.[0]?.id
                     });
                 }
             } catch (error) {
                 console.error('Failed to write to Craft:', error);
+                throw error; // Re-throw so the caller knows it failed
             }
         }
 
@@ -1339,12 +1361,22 @@ FORMAT:
 
                 // Write to Craft
                 const craftContent = `> ${input}\n\n${fullResponse}`;
-                
-                if (branchTitle) {
-                    await createBranch(branchTitle);
+
+                try {
+                    if (branchTitle) {
+                        console.log('Creating new branch:', branchTitle);
+                        await createBranch(branchTitle);
+                    }
+
+                    await writeToCraft(craftContent);
+                } catch (craftError) {
+                    console.error('Craft API error:', craftError);
+                    // Show error but don't remove the narrative - it's still valuable
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'error-message';
+                    errorDiv.textContent = `Failed to save to Craft: ${craftError.message}. Your story continues but may not be saved.`;
+                    storyContent.appendChild(errorDiv);
                 }
-                
-                await writeToCraft(craftContent);
 
             } catch (error) {
                 console.error('Generation error:', error);
