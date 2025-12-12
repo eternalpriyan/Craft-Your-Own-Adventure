@@ -1,7 +1,7 @@
 # Craft Choose Your Own Adventure
 
 ## Concept
-HTML app: AI narrator (Gemini 2.5 Flash) + Craft doc as persistent save file. Player chats story → AI streams narrative → writes to Craft. Branches = nested `<page>` blocks. Tree view for navigation. Warm amber terminal aesthetic (Infocom tribute).
+HTML app: AI narrator (via OpenRouter) + Craft doc as persistent save file. Player chats story → AI streams narrative → writes to Craft. Branches = nested `<page>` blocks. Tree view for navigation. Warm amber terminal aesthetic (Infocom tribute).
 
 ## Craft API (Multi-Document Block-Based)
 Base: `https://connect.craft.do/links/{LINK_ID}/api/v1`
@@ -19,17 +19,18 @@ Base: `https://connect.craft.do/links/{LINK_ID}/api/v1`
 - Content blocks have `type: "text"`, `markdown: "..."`
 - Page blocks have `type: "page"`, nested `content: [...]`
 
-## Gemini API
+## OpenRouter API
 ```
-POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key={KEY}
-Body: {contents: [{role, parts: [{text}]}], generationConfig: {temperature: 0.9, maxOutputTokens: 1024}}
+POST https://openrouter.ai/api/v1/chat/completions
+Headers: Authorization: Bearer {KEY}, Content-Type: application/json
+Body: {model: "mistralai/mistral-7b-instruct:free", messages: [{role, content}], stream: true, temperature: 0.9, max_tokens: 1024}
 ```
-Streaming: SSE format, parse `data: {candidates: [{content: {parts: [{text}]}}]}`
+Streaming: SSE format, parse `data: {choices: [{delta: {content}}]}`
 
 ## App Flow
-1. Splash → Settings (Gemini key, Craft URL, optional doc ID)
+1. Splash → Settings (OpenRouter key, Craft URL, optional doc ID)
 2. Load: `GET /documents` → `GET /blocks?id={docId}` → build tree
-3. Play: User input → Gemini streams → display + `POST /blocks` to Craft
+3. Play: User input → OpenRouter streams → display + `POST /blocks` to Craft
 4. Branch: AI outputs `[BRANCH: title]` → `POST /blocks` with `<page>title</page>` → continue in new branch
 5. Navigate: Tree panel shows all branches, click to load any
 
@@ -54,11 +55,11 @@ Narrative paragraph from AI...
 
 ## Files
 - `index.html` — single-file app (HTML + CSS + JS)
-- Credentials stored in localStorage: `cyoa_gemini_key`, `cyoa_craft_token`, `cyoa_craft_doc_id`
+- Credentials stored in localStorage: `cyoa_openrouter_key`, `cyoa_craft_token`, `cyoa_craft_doc_id`
 
 ## Current Status
 - UI complete (splash, settings, chat, tree panel)
-- Gemini streaming working
+- OpenRouter streaming working
 - Craft API integration working
 - Story branching creates subpages in Craft Docs
 
