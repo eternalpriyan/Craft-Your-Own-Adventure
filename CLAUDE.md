@@ -25,7 +25,7 @@ Base: `https://connect.craft.do/links/{LINK_ID}/api/v1`
 ```
 POST https://openrouter.ai/api/v1/chat/completions
 Headers: Authorization: Bearer {KEY}, Content-Type: application/json
-Body: {model: "mistralai/mistral-7b-instruct:free", messages: [{role, content}], stream: true, temperature: 0.9, max_tokens: 1024}
+Body: {model: "google/gemma-2-9b-it:free", messages: [{role, content}], stream: true, temperature: 0.9, max_tokens: 1024}
 ```
 Streaming: SSE format, parse `data: {choices: [{delta: {content}}]}`
 
