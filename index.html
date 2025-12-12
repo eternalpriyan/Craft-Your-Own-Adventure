@@ -272,23 +272,6 @@
             gap: 15px;
         }
         
-        .tree-toggle {
-            background: none;
-            border: 1px solid var(--border);
-            color: var(--amber-dim);
-            padding: 6px 12px;
-            font-family: 'VT323', monospace;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .tree-toggle:hover,
-        .tree-toggle.active {
-            border-color: var(--amber);
-            color: var(--amber);
-        }
-        
         .header-title {
             font-family: 'VT323', monospace;
             font-size: 20px;
@@ -325,83 +308,29 @@
             color: var(--amber);
         }
         
-        /* Tree Panel */
-        .tree-panel {
-            position: fixed;
-            top: 50px;
-            left: 0;
-            bottom: 0;
-            width: 280px;
-            background: var(--bg-panel);
-            border-right: 1px solid var(--border);
-            transform: translateX(-100%);
-            transition: transform 0.3s ease;
-            z-index: 40;
-            overflow-y: auto;
-            padding: 20px;
-        }
-        
-        .tree-panel.open {
-            transform: translateX(0);
-        }
-        
-        .tree-header {
-            font-family: 'VT323', monospace;
-            font-size: 16px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
+        /* Header buttons */
+        .header-btn {
+            background: none;
+            border: 1px solid var(--border);
             color: var(--amber-dim);
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .tree-node {
-            padding: 8px 0;
-            padding-left: 15px;
-            border-left: 1px solid var(--border);
-            margin-left: 8px;
-        }
-        
-        .tree-node:first-child {
-            border-left: none;
-            margin-left: 0;
-            padding-left: 0;
-        }
-        
-        .tree-item {
+            padding: 4px 10px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
-            cursor: pointer;
-            border-radius: 3px;
-            transition: all 0.2s;
-            font-size: 13px;
-            color: var(--amber-dim);
+            gap: 4px;
         }
-        
-        .tree-item:hover {
-            background: rgba(255, 176, 0, 0.1);
+
+        .header-btn:hover:not(:disabled) {
+            border-color: var(--amber);
             color: var(--amber);
         }
-        
-        .tree-item.current {
-            background: rgba(255, 176, 0, 0.15);
-            color: var(--amber);
-            border-left: 2px solid var(--amber);
-            margin-left: -2px;
-        }
-        
-        .tree-item-icon {
-            font-size: 10px;
-        }
-        
-        .tree-empty {
-            color: var(--text-dim);
-            font-size: 13px;
-            font-style: italic;
-            padding: 20px 0;
+
+        .header-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
         }
         
         /* Main Content */
@@ -484,7 +413,184 @@
             color: var(--amber-dim);
             font-style: italic;
         }
-        
+
+        /* Narrative hover actions */
+        .story-segment.narration {
+            position: relative;
+        }
+
+        .narrative-actions {
+            position: absolute;
+            top: 0;
+            right: 0;
+            display: flex;
+            gap: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .story-segment.narration:hover .narrative-actions {
+            opacity: 1;
+        }
+
+        .narrative-btn {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 4px 10px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .narrative-btn:hover {
+            border-color: var(--amber);
+            color: var(--amber);
+            background: rgba(255, 176, 0, 0.1);
+        }
+
+        /* Narrative edit mode */
+        .story-segment.narration.editing {
+            padding: 0;
+        }
+
+        .story-segment.narration.editing .narrative-actions {
+            display: none;
+        }
+
+        .narrative-edit-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .narrative-edit-textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 15px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 14px;
+            line-height: 1.7;
+            background: var(--bg-dark);
+            border: 1px solid var(--amber-dim);
+            color: var(--amber);
+            resize: vertical;
+            outline: none;
+        }
+
+        .narrative-edit-textarea:focus {
+            border-color: var(--amber);
+            box-shadow: 0 0 10px var(--amber-glow);
+        }
+
+        .narrative-edit-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .narrative-edit-btn {
+            padding: 8px 20px;
+            font-family: 'VT323', monospace;
+            font-size: 16px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+        }
+
+        .narrative-edit-btn.save {
+            background: var(--amber);
+            border: none;
+            color: var(--bg-dark);
+        }
+
+        .narrative-edit-btn.save:hover {
+            background: var(--amber-bright);
+            box-shadow: 0 0 15px var(--amber-glow);
+        }
+
+        .narrative-edit-btn.cancel {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--amber-dim);
+        }
+
+        .narrative-edit-btn.cancel:hover {
+            border-color: var(--amber);
+            color: var(--amber);
+        }
+
+        /* Refresh Modal */
+        #refresh-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 300;
+        }
+
+        #refresh-modal.active {
+            display: flex;
+        }
+
+        .refresh-modal-content {
+            background: var(--bg-panel);
+            border: 1px solid var(--amber-dim);
+            padding: 30px 40px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 0 40px var(--amber-glow);
+        }
+
+        .refresh-modal-content h3 {
+            font-family: 'VT323', monospace;
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: var(--amber);
+        }
+
+        .refresh-modal-content p {
+            color: var(--amber-dim);
+            font-size: 13px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .refresh-modal-textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 14px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--amber);
+            resize: vertical;
+            outline: none;
+            margin-bottom: 20px;
+        }
+
+        .refresh-modal-textarea:focus {
+            border-color: var(--amber);
+        }
+
+        .refresh-modal-textarea::placeholder {
+            color: var(--text-dim);
+        }
+
+        .refresh-modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+        }
+
         .story-suggestions {
             margin-top: 20px;
             padding: 15px;
@@ -541,10 +647,6 @@
 
         .suggestion-item .option-text {
             flex: 1;
-        }
-
-        .suggestion-item .option-text::before {
-            content: '• ';
         }
 
         .suggestion-item .option-actions {
@@ -837,22 +939,15 @@
     <div id="app">
         <header class="header">
             <div class="header-left">
-                <button class="tree-toggle" id="tree-toggle">☰ Tree</button>
                 <span class="header-title">CRAFT YOUR OWN ADVENTURE</span>
             </div>
             <div class="header-right">
                 <span class="model-indicator" id="model-indicator" title="Current AI Model">AI: DeepSeek</span>
-                <span id="current-branch-name"></span>
+                <button class="header-btn" id="back-btn" disabled title="Go back">← Back</button>
+                <button class="header-btn" id="refresh-btn" title="Reload from Craft">↻ Refresh</button>
                 <button class="settings-btn" id="open-settings" title="Settings">⚙</button>
             </div>
         </header>
-
-        <aside class="tree-panel" id="tree-panel">
-            <div class="tree-header">📖 Adventure Map</div>
-            <div id="tree-content">
-                <div class="tree-empty">No adventures yet. Start your story below.</div>
-            </div>
-        </aside>
 
         <main class="main-content">
             <div class="story-container" id="story-container">
@@ -886,6 +981,19 @@
         </div>
     </div>
 
+    <!-- Refresh/Regenerate Modal -->
+    <div id="refresh-modal">
+        <div class="refresh-modal-content">
+            <h3>Regenerate Narrative</h3>
+            <p>What would you like different? Leave blank to let the AI regenerate freely.</p>
+            <textarea class="refresh-modal-textarea" id="refresh-prompt" placeholder="e.g., Make it more mysterious, add more dialogue, describe the setting in more detail..."></textarea>
+            <div class="refresh-modal-buttons">
+                <button class="btn btn-secondary" id="refresh-cancel">Cancel</button>
+                <button class="btn btn-primary" id="refresh-confirm">Regenerate</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ===== STATE =====
         const state = {
@@ -896,7 +1004,9 @@
             currentBranchId: null,
             adventureTree: null,
             conversationContext: [],
-            isGenerating: false
+            isGenerating: false,
+            isLoadingTree: false,
+            appInitialized: false
         };
 
         // Model display names
@@ -912,8 +1022,6 @@
         const splash = $('splash');
         const settingsModal = $('settings-modal');
         const app = $('app');
-        const treePanel = $('tree-panel');
-        const treeContent = $('tree-content');
         const storyContent = $('story-content');
         const storyContainer = $('story-container');
         const branchNotification = $('branch-notification');
@@ -940,18 +1048,26 @@
                 settingsModal.classList.add('active');
             });
 
-            // Tree panel toggle
-            $('tree-toggle').addEventListener('click', () => {
-                treePanel.classList.toggle('open');
-                $('tree-toggle').classList.toggle('active');
-            });
+            // Back button
+            $('back-btn').addEventListener('click', goBack);
+
+            // Refresh button
+            $('refresh-btn').addEventListener('click', refreshFromCraft);
 
             // Delete modal handlers
             $('delete-confirm').addEventListener('click', confirmDelete);
             $('delete-cancel').addEventListener('click', cancelDelete);
+
+            // Refresh modal handlers
+            $('refresh-confirm').addEventListener('click', confirmRefresh);
+            $('refresh-cancel').addEventListener('click', cancelRefresh);
         }
 
+        let startHandled = false;
         function handleStart() {
+            if (startHandled) return;
+            startHandled = true;
+
             splash.style.display = 'none';
 
             if (state.openrouterKey && state.craftToken && state.craftDocId) {
@@ -1004,6 +1120,13 @@
         }
 
         async function showApp() {
+            // Prevent double initialization
+            if (state.appInitialized) {
+                console.log('App already initialized, skipping showApp()');
+                return;
+            }
+            state.appInitialized = true;
+
             app.classList.add('active');
             updateModelIndicator();
             await loadAdventureTree();
@@ -1036,6 +1159,13 @@
         }
 
         async function loadAdventureTree() {
+            // Prevent concurrent loads
+            if (state.isLoadingTree) {
+                console.log('Already loading tree, skipping...');
+                return;
+            }
+            state.isLoadingTree = true;
+
             try {
                 // First, list all documents to find ours or let user pick
                 const docsResponse = await craftRequest('documents');
@@ -1068,11 +1198,19 @@
                 // Debug: log tree structure
                 console.log('Adventure tree:', JSON.stringify(state.adventureTree, null, 2));
 
-                // Load the root page (step 0)
-                await loadPage(targetDoc.id);
+                // Restore last viewed page, or default to root
+                const savedPageId = localStorage.getItem('cyoa_current_page');
+                const targetPageId = savedPageId && findNode(state.adventureTree, savedPageId)
+                    ? savedPageId
+                    : targetDoc.id;
+
+                console.log('Navigating to:', targetPageId, savedPageId ? '(restored)' : '(root)');
+                await loadPage(targetPageId);
             } catch (error) {
                 console.error('Failed to load adventure tree:', error);
                 showError(`Failed to load from Craft: ${error.message}`);
+            } finally {
+                state.isLoadingTree = false;
             }
         }
 
@@ -1109,55 +1247,59 @@
             return node;
         }
 
-        function renderTree() {
-            if (!state.adventureTree) {
-                treeContent.innerHTML = '<div class="tree-empty">No adventures yet. Start your story below.</div>';
-                return;
+        // Find parent of a node
+        function findParent(tree, targetId, parent = null) {
+            if (!tree) return null;
+            if (tree.id === targetId) return parent;
+            for (const child of tree.children || []) {
+                const found = findParent(child, targetId, tree);
+                if (found) return found;
             }
-
-            treeContent.innerHTML = renderTreeNode(state.adventureTree, 0);
+            return null;
         }
 
-        function renderTreeNode(node, depth) {
-            const isCurrent = node.id === state.currentBranchId;
-            const icon = node.children.length > 0 ? '📂' : '📄';
-            
-            let html = `
-                <div class="tree-node">
-                    <div class="tree-item ${isCurrent ? 'current' : ''}" data-id="${node.id}">
-                        <span class="tree-item-icon">${icon}</span>
-                        <span>${truncate(node.title, 25)}</span>
-                    </div>
-            `;
-
-            if (node.children.length > 0) {
-                for (const child of node.children) {
-                    html += renderTreeNode(child, depth + 1);
-                }
+        // Go back to parent page
+        async function goBack() {
+            if (state.isGenerating) return;
+            const parent = findParent(state.adventureTree, state.currentBranchId);
+            if (parent) {
+                await loadPage(parent.id);
             }
-
-            html += '</div>';
-            return html;
         }
 
-        // Add click handlers after rendering
-        function attachTreeHandlers() {
-            document.querySelectorAll('.tree-item').forEach(item => {
-                item.addEventListener('click', () => {
-                    const id = item.dataset.id;
-                    navigateToBranch(id);
-                });
-            });
+        // Refresh current page from Craft
+        async function refreshFromCraft() {
+            if (state.isGenerating || state.isLoadingTree) return;
+
+            const refreshBtn = $('refresh-btn');
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = '↻ Loading...';
+
+            // Show loading in content area
+            storyContent.innerHTML = '<div class="loading">Refreshing from Craft...</div>';
+
+            // Reset initialization flags to allow reload
+            state.appInitialized = false;
+            state.isLoadingTree = false;
+
+            await loadAdventureTree();
+
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = '↻ Refresh';
         }
 
-        async function navigateToBranch(id) {
-            // All navigation goes through loadPage (step 0)
-            await loadPage(id);
+        // Update back button state
+        function updateBackButton() {
+            const backBtn = $('back-btn');
+            const parent = findParent(state.adventureTree, state.currentBranchId);
+            backBtn.disabled = !parent;
         }
 
         // ===== STEP 0: LOAD PAGE (Central function - everything funnels here) =====
         async function loadPage(pageId) {
             state.currentBranchId = pageId;
+            // Remember current location for page refresh
+            localStorage.setItem('cyoa_current_page', pageId);
             state.isGenerating = true;
 
             const node = findNode(state.adventureTree, pageId);
@@ -1208,9 +1350,7 @@
 
             // Display content and options
             displayPage(node);
-
-            renderTree();
-            attachTreeHandlers();
+            updateBackButton();
 
             state.isGenerating = false;
         }
@@ -1229,7 +1369,14 @@
             if (node.content && node.content.trim()) {
                 const paragraphs = node.content.split('\n\n').filter(p => p.trim());
                 const contentHtml = paragraphs.map(p => `<p>${parseMarkdown(p.trim())}</p>`).join('');
-                html += `<div class="story-segment narration">${contentHtml}</div>`;
+                html += `
+                    <div class="story-segment narration" data-page-id="${node.id}">
+                        <div class="narrative-actions">
+                            <button class="narrative-btn" onclick="editNarrative('${node.id}')" title="Edit">✎ Edit</button>
+                            <button class="narrative-btn" onclick="refreshNarrative('${node.id}')" title="Regenerate">↻ Refresh</button>
+                        </div>
+                        <div class="narrative-content">${contentHtml}</div>
+                    </div>`;
             }
 
             // Show child pages as options
@@ -1391,8 +1538,6 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
                 const parentNode = findNode(state.adventureTree, parentId);
                 if (parentNode) {
                     displayPage(parentNode);
-                    renderTree();
-                    attachTreeHandlers();
                 }
             };
 
@@ -1457,8 +1602,6 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
             if (parentNode) {
                 parentNode.children = parentNode.children.filter(c => c.id !== pageId);
                 displayPage(parentNode);
-                renderTree();
-                attachTreeHandlers();
             }
 
             // Sync with Craft in background
@@ -1469,6 +1612,226 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 
         function cancelDelete() {
             $('delete-modal').classList.remove('active');
+        }
+
+        // ===== NARRATIVE EDIT/REFRESH =====
+        // Edit narrative inline
+        window.editNarrative = function(pageId) {
+            if (state.isGenerating) return;
+
+            const node = findNode(state.adventureTree, pageId);
+            if (!node) return;
+
+            const narrativeEl = document.querySelector(`.story-segment.narration[data-page-id="${pageId}"]`);
+            if (!narrativeEl) return;
+
+            // Enter edit mode
+            narrativeEl.classList.add('editing');
+
+            // Replace content with textarea
+            narrativeEl.innerHTML = `
+                <div class="narrative-edit-container">
+                    <textarea class="narrative-edit-textarea" id="narrative-edit-textarea">${escapeHtml(node.content)}</textarea>
+                    <div class="narrative-edit-buttons">
+                        <button class="narrative-edit-btn cancel" onclick="cancelEditNarrative('${pageId}')">Cancel</button>
+                        <button class="narrative-edit-btn save" onclick="saveNarrative('${pageId}')">Save</button>
+                    </div>
+                </div>
+            `;
+
+            // Focus the textarea
+            const textarea = document.getElementById('narrative-edit-textarea');
+            textarea.focus();
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+            // Handle Escape to cancel
+            textarea.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    cancelEditNarrative(pageId);
+                } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    saveNarrative(pageId);
+                }
+            });
+        };
+
+        // Save edited narrative
+        window.saveNarrative = async function(pageId) {
+            const textarea = document.getElementById('narrative-edit-textarea');
+            if (!textarea) return;
+
+            const newContent = textarea.value.trim();
+            if (!newContent) {
+                cancelEditNarrative(pageId);
+                return;
+            }
+
+            const node = findNode(state.adventureTree, pageId);
+            if (!node) return;
+
+            // Update local tree immediately
+            node.content = newContent;
+
+            // Re-render the CURRENT page (not necessarily the edited node)
+            const currentNode = findNode(state.adventureTree, state.currentBranchId);
+            if (currentNode) {
+                displayPage(currentNode);
+            }
+
+            // Update Craft in background
+            console.log('Saving narrative to Craft for page:', pageId);
+            updateNarrativeInCraft(pageId, newContent).then(() => {
+                console.log('Successfully synced narrative to Craft');
+            }).catch(error => {
+                console.error('Failed to sync narrative with Craft:', error);
+            });
+        };
+
+        // Cancel narrative edit
+        window.cancelEditNarrative = function(pageId) {
+            // Re-render the CURRENT page
+            const currentNode = findNode(state.adventureTree, state.currentBranchId);
+            if (currentNode) {
+                displayPage(currentNode);
+            }
+        };
+
+        // Open refresh modal
+        window.refreshNarrative = function(pageId) {
+            if (state.isGenerating) return;
+
+            const modal = $('refresh-modal');
+            const promptInput = $('refresh-prompt');
+
+            // Clear previous prompt
+            promptInput.value = '';
+
+            // Store pageId for confirm handler
+            modal.dataset.pageId = pageId;
+            modal.classList.add('active');
+
+            // Focus the input
+            promptInput.focus();
+
+            // Handle Enter to confirm
+            promptInput.addEventListener('keydown', function handler(e) {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    confirmRefresh();
+                    promptInput.removeEventListener('keydown', handler);
+                } else if (e.key === 'Escape') {
+                    cancelRefresh();
+                    promptInput.removeEventListener('keydown', handler);
+                }
+            });
+        };
+
+        // Confirm refresh from modal
+        async function confirmRefresh() {
+            const modal = $('refresh-modal');
+            const pageId = modal.dataset.pageId;
+            const prompt = $('refresh-prompt').value.trim();
+            modal.classList.remove('active');
+
+            if (!pageId) return;
+
+            const node = findNode(state.adventureTree, pageId);
+            if (!node) return;
+
+            state.isGenerating = true;
+
+            // Show loading state
+            const narrativeEl = document.querySelector(`.story-segment.narration[data-page-id="${pageId}"]`);
+            if (narrativeEl) {
+                narrativeEl.innerHTML = '<div class="loading">Regenerating...</div>';
+            }
+
+            try {
+                // Generate new narrative with optional prompt
+                const newContent = await regenerateNarrative(node.title, node.content, prompt);
+
+                // Update local tree
+                node.content = newContent;
+
+                // Re-render the CURRENT page
+                const currentNode = findNode(state.adventureTree, state.currentBranchId);
+                if (currentNode) {
+                    displayPage(currentNode);
+                }
+
+                // Update Craft in background
+                console.log('Saving regenerated narrative to Craft for page:', pageId);
+                updateNarrativeInCraft(pageId, newContent).then(() => {
+                    console.log('Successfully synced regenerated narrative to Craft');
+                }).catch(error => {
+                    console.error('Failed to sync regenerated narrative with Craft:', error);
+                });
+
+            } catch (error) {
+                console.error('Regeneration error:', error);
+                // Restore original content on error
+                const currentNode = findNode(state.adventureTree, state.currentBranchId);
+                if (currentNode) {
+                    displayPage(currentNode);
+                }
+            }
+
+            state.isGenerating = false;
+        }
+
+        function cancelRefresh() {
+            $('refresh-modal').classList.remove('active');
+        }
+
+        // Regenerate narrative with optional guidance
+        async function regenerateNarrative(choice, currentContent, guidance) {
+            // Mock implementation - replace with real OpenRouter call
+            await new Promise(r => setTimeout(r, 800));
+
+            if (guidance) {
+                return `[Regenerated with guidance: "${guidance}"]\n\nYou chose: "${choice}"\n\nThe story continues with your requested changes. Lorem ipsum dolor sit amet, consectetur adipiscing elit. This narrative has been adjusted based on your feedback.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.`;
+            } else {
+                return `[Regenerated freely]\n\nYou chose: "${choice}"\n\nA fresh take on the narrative unfolds. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.\n\nNemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.`;
+            }
+        }
+
+        // Update narrative content in Craft
+        // Craft stores each paragraph as a separate text block, so we need to handle that
+        // NOTE: We only touch TEXT blocks, never page blocks (they have nested content!)
+        async function updateNarrativeInCraft(pageId, newContent) {
+            console.log('updateNarrativeInCraft called with pageId:', pageId);
+
+            // Fetch current page structure
+            const response = await craftRequest(`blocks?id=${pageId}&maxDepth=1`);
+            console.log('Fetched page structure:', response);
+
+            // Only touch text blocks - NEVER delete page blocks (they have nested content!)
+            const textBlocks = (response.content || []).filter(c => c.type === 'text');
+            console.log('Found text blocks:', textBlocks.length);
+
+            // Split new content into paragraphs (Craft stores each as separate block)
+            const paragraphs = newContent.split('\n\n').filter(p => p.trim());
+            console.log('New content has', paragraphs.length, 'paragraphs');
+
+            // Step 1: Delete existing text blocks only
+            if (textBlocks.length > 0) {
+                console.log('Deleting', textBlocks.length, 'text blocks...');
+                const blockIds = textBlocks.map(b => b.id);
+                await craftRequest('blocks', 'DELETE', { blockIds });
+            }
+
+            // Step 2: Create new text blocks at START of page (before options)
+            console.log('Creating', paragraphs.length, 'text blocks at start...');
+            for (let i = paragraphs.length - 1; i >= 0; i--) {
+                const paragraph = paragraphs[i].trim();
+                if (!paragraph) continue;
+                await craftRequest('blocks', 'POST', {
+                    markdown: paragraph,
+                    position: { position: 'start', pageId: pageId }
+                });
+            }
+
+            console.log('Successfully updated narrative in Craft');
         }
 
         // Add a new option
@@ -1491,8 +1854,6 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 
             // Re-render to show the new option
             displayPage(parentNode);
-            renderTree();
-            attachTreeHandlers();
 
             // Find the new item and trigger edit mode
             const newItem = document.querySelector(`[data-page-id="${tempId}"]`);
@@ -1511,8 +1872,6 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
                     if (currentParent) {
                         currentParent.children = currentParent.children.filter(c => c.id !== tempId);
                         displayPage(currentParent);
-                        renderTree();
-                        attachTreeHandlers();
                     }
                 };
 
@@ -1561,8 +1920,6 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 
             // Refresh display instantly
             displayPage(parentNode);
-            renderTree();
-            attachTreeHandlers();
 
             // Create in Craft in background (don't use createEmptyChildPage - it adds to tree)
             try {
@@ -1578,8 +1935,6 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
                 if (newPageId && tempNode) {
                     // Update the temp ID to real ID
                     tempNode.id = newPageId;
-                    renderTree();
-                    attachTreeHandlers();
                 }
             } catch (error) {
                 console.error('Failed to create option in Craft:', error);
@@ -1624,8 +1979,6 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
             const parentNode = findNode(state.adventureTree, parentId);
             if (parentNode) {
                 displayPage(parentNode);
-                renderTree();
-                attachTreeHandlers();
             }
 
             // Sync with Craft in background
