@@ -2,7 +2,7 @@
 
 Uses Craft's hierarchical page structure as a natural branching narrative tree, with the AI reading and writing directly into the document as you play. 
 
-Craft Your Own Adventure is a single HTML file. Choose to run it by downloading it to your system and opening page. Or run it online. 
+Craft Your Own Adventure is a single HTML file. Choose to run it by downloading it to your system and opening page. Or run it online at https://eternalpriyan.github.io/Craft-Your-Own-Adventure. 
 
 - Chat interface - You interact with Gemini (or Claude via API) through an HTML window
 - Live writing - The AI writes the narrative directly into your Craft doc as it generates
